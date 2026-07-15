@@ -645,19 +645,13 @@ function productEmissionBase(productId: string | number) {
 export async function apiListEmissionsByProduct(
   productId: string | number
 ): Promise<EmissionDTO[]> {
-  
-  const raw = String(productId);
-  const m = raw.match(/(\d+)$/);
-  const pidForList = m ? m[1] : raw;
-
   try {
     const res = await http.get<any>(
-      `/api/products/${encodeURIComponent(pidForList)}/emissions`
+      `/api/products/${encodeURIComponent(String(productId))}/emissions`
     );
     const list = pickList(res, "emissions");
     console.log("[apiListEmissionsByProduct] fetched", {
       productId,
-      pidForList,
       count: Array.isArray(list) ? list.length : "n/a",
     });
     return (list || []) as EmissionDTO[];
@@ -670,6 +664,12 @@ export async function apiListEmissionsByProduct(
     }
     throw e;
   }
+}
+
+export async function apiEnsureProductAccessible(
+  productId: string | number
+): Promise<void> {
+  await http.get(`/api/products/${encodeURIComponent(String(productId))}`);
 }
 
 /* 建立 emission 的 payload */

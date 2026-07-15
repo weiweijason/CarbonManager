@@ -1,5 +1,6 @@
 import {
   apiCreateEmission,
+  apiEnsureProductAccessible,
   apiSearchFactors,
   apiListFactorsByTag,
   apiListEmissionsByProduct,
@@ -310,8 +311,9 @@ export default function ProductLifeCyclePage() {
   // ===== 初始化：產品名稱、StageConfig、標的、後端 emissions / steps =====
   useEffect(() => {
     if (!productId || !ready || !canRead) return;
+    let disposed = false;
     const shopId = workingShopId;
-    const pidForApi = productId!; // ★ 後端期望的是 PRD 開頭的 display id，不要再轉 Number
+    const pidForApi = productId!;
 
     const products = loadProducts(shopId);
     const product = products.find(
@@ -328,20 +330,29 @@ export default function ProductLifeCyclePage() {
 
     setTarget(loadTarget(shopId, productId!));
 
-    // 後端 emissions
     (async () => {
       try {
+        // 先確認此商品是否可被目前登入者存取；不可存取就直接導回首頁
+        await apiEnsureProductAccessible(pidForApi);
+      } catch (e) {
+        console.warn("[guard] product access denied or not found, redirect home", e);
+        if (!disposed) navigate("/", { replace: true });
+        return;
+      }
+
+      // 後端 emissions
+      try {
         const list = await apiListEmissionsByProduct(pidForApi as any);
-        const mapped = (list || []).map(mapEmissionToLifeRecord);
-        setRecords(mapped);
+        if (!disposed) {
+          const mapped = (list || []).map(mapEmissionToLifeRecord);
+          setRecords(mapped);
+        }
       } catch (e) {
         console.error("[emissions] 載入產品排放紀錄失敗", e);
-        setRecords([]);
+        if (!disposed) setRecords([]);
       }
-    })();
 
-    // 後端 steps：若有資料則覆蓋對應階段的 steps
-    (async () => {
+      // 後端 steps：若有資料則覆蓋對應階段的 steps
       try {
         const backendStepsByStage: Record<FixedStageId, UserStep[]> = {
           raw: [],
@@ -379,15 +390,17 @@ export default function ProductLifeCyclePage() {
           });
         }
 
-        setStages((prev) =>
-          prev.map((s) => {
-            const backend = backendStepsByStage[s.id];
-            if (backend && backend.length) {
-              return { ...s, steps: backend };
-            }
-            return s;
-          })
-        );
+        if (!disposed) {
+          setStages((prev) =>
+            prev.map((s) => {
+              const backend = backendStepsByStage[s.id];
+              if (backend && backend.length) {
+                return { ...s, steps: backend };
+              }
+              return s;
+            })
+          );
+        }
       } catch (e) {
         console.warn(
           "[steps] 載入後端 steps 失敗，暫時使用本地 stageConfig",
@@ -395,7 +408,11 @@ export default function ProductLifeCyclePage() {
         );
       }
     })();
-  }, [productId, workingShopId, canRead, canEdit, ready]);
+
+    return () => {
+      disposed = true;
+    };
+  }, [productId, workingShopId, canRead, canEdit, ready, navigate]);
 
   useEffect(() => {
     if (!ready) return;
