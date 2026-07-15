@@ -10,6 +10,7 @@ import {
   EmissionDTO,
   StageId,
 } from "@/api/lifecycle";
+import { formatTsToTaipei, formatIsoToTaipei } from "@/utils/formatTime";
 import React, { useMemo, useEffect, useState } from "react";
 import styled from "styled-components";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
@@ -1250,9 +1251,7 @@ export default function ProductLifeCyclePage() {
                         {r.unit ? ` ${r.unit}` : ""}（{r.emission} kg）
                       </span>
                       <SmallMuted>
-                        {r.timestamp
-                          ? new Date(r.timestamp * 1000).toLocaleString()
-                          : ""}
+                        {r.timestamp ? formatTsToTaipei(r.timestamp) : ""}
                       </SmallMuted>
                     </HistoryRow>
                   ))

@@ -7,6 +7,7 @@ import {
   apiSearchFactors,
   FactorDTO,
 } from "@/api/lifecycle";
+import { formatTsToTaipei, formatIsoToTaipei } from "@/utils/formatTime";
 
 export type RecordItem = {
   id: string;
@@ -144,7 +145,12 @@ export default function HistoryList({ records, onEdit, onDelete }: Props) {
           typeof r.timestamp === "number" && !Number.isNaN(r.timestamp)
             ? r.timestamp * 1000
             : undefined;
-        const dateStr = r.date ?? (tsMs ? new Date(tsMs).toLocaleString() : "");
+        // Prefer ISO date string (already UTC+8 from backend); fall back to ts-based formatting
+        const dateStr = r.date
+          ? formatIsoToTaipei(r.date)
+          : tsMs
+          ? formatTsToTaipei(tsMs / 1000)
+          : "";
 
         const isEditing = editingId === r.id;
         const unitShow = r.unit && r.unit.trim() ? r.unit : "-";
