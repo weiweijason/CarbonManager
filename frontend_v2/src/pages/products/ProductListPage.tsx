@@ -1,5 +1,5 @@
 // src/pages/products/ProductListPage.tsx
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import * as S from "./ProductListPage.styles";
 import Modal from "@/ui/components/Modal";
 import AccountMenu from "@/ui/components/AccountMenu";
@@ -254,7 +254,7 @@ export default function ProductListPage() {
   }
 
   // ---------- CRUD ----------
-  const [openModal, setOpenModal] = useState<null | "new" | "edit" | "newType" | "confirmDup">(null);
+  const [openModal, setOpenModal] = useState<null | "new" | "edit" | "newType" | "confirmDup" | "confirmDel">(null);
   const [newName, setNewName] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [editTypeId, setEditTypeId] = useState<string | null>(null);
@@ -263,8 +263,20 @@ export default function ProductListPage() {
   const [dupTarget, setDupTarget] = useState<ProductRow | null>(null);
   const [dupLoading, setDupLoading] = useState(false);
   const [dupStatus, setDupStatus] = useState("");
+  const [delTarget, setDelTarget] = useState<ProductRow | null>(null);
+  const [delLoading, setDelLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const btnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  // ── Toast 通知 ──────────────────────────────────────────────
+  const [toast, setToast] = useState<{ msg: string; type: "error" | "info" | "ok" } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((msg: string, type: "error" | "info" | "ok" = "error") => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ msg, type });
+    toastTimer.current = setTimeout(() => setToast(null), 3500);
+  }, []);
 
   async function handleAdd() {
     if (readOnly) return;
@@ -292,15 +304,32 @@ export default function ProductListPage() {
     }
   }
 
-  async function handleDelete(p: ProductRow) {
+  function requestDelete(p: ProductRow) {
     if (readOnly) return;
+    setDelTarget(p);
+    setOpenModal("confirmDel");
+  }
+
+  async function confirmDelete() {
+    if (!delTarget) return;
+    const p = delTarget;
     const typeId = p._typeId ?? (tid !== "__all" ? tid : null);
-    if (!typeId) { alert("刪除失敗：找不到商品所屬分類。"); return; }
+    if (!typeId) {
+      showToast("刪除失敗：找不到商品所屬分類。");
+      setOpenModal(null);
+      return;
+    }
+    setDelLoading(true);
     try {
       await apiDeleteProduct(typeId, p.id as any);
       setProducts((prev) => prev.filter((x) => !(x.id === p.id && x._typeId === typeId)));
+      setOpenModal(null);
+      setDelTarget(null);
+      showToast("商品已刪除", "ok");
     } catch (err: any) {
-      alert("刪除失敗：" + (err?.message || err));
+      showToast("刪除失敗：" + (err?.message || err));
+    } finally {
+      setDelLoading(false);
     }
   }
 
@@ -325,7 +354,7 @@ export default function ProductListPage() {
     if (!dupTarget) return;
     const p = dupTarget;
     const typeId = p._typeId ?? (tid !== "__all" ? tid : null);
-    if (!typeId) { alert("複製失敗：找不到商品所屬分類。"); setOpenModal(null); return; }
+    if (!typeId) { showToast("複製失敗：找不到商品所屬分類。"); setOpenModal(null); return; }
     setDupLoading(true);
     setDupStatus("建立新商品…");
     try {
@@ -363,7 +392,7 @@ export default function ProductListPage() {
       setDupStatus("");
       refresh(typeId);
     } catch (err: any) {
-      alert("複製失敗：" + (err?.message || err));
+      showToast("複製失敗：" + (err?.message || err));
     } finally {
       setDupLoading(false);
     }
@@ -382,8 +411,8 @@ export default function ProductListPage() {
     } catch (err: any) {
       const status = err?.status ?? err?.response?.status;
       const msg = String(err?.message || err);
-      if (status === 409 || /duplicate/i.test(msg)) alert("改名失敗：名稱重複。");
-      else alert("改名失敗：" + msg);
+      if (status === 409 || /duplicate/i.test(msg)) showToast("改名失敗：名稱重複，請換一個名稱。");
+      else showToast("改名失敗：" + msg);
     }
   }
 
@@ -401,7 +430,7 @@ export default function ProductListPage() {
       setOpenModal(null);
       setNewTypeName("");
     } catch (err: any) {
-      alert("建立類型失敗：" + (err?.message || err));
+      showToast("建立類型失敗：" + (err?.message || err));
     }
   }
 
@@ -422,6 +451,14 @@ export default function ProductListPage() {
 
   return (
     <S.PageWrapper>
+      {/* ── 浮動 Toast 通知 ── */}
+      {toast && (
+        <S.Toast $type={toast.type} role="alert" aria-live="assertive">
+          {toast.type === "error" ? "⚠ " : toast.type === "ok" ? "✅ " : "ℹ "}
+          {toast.msg}
+        </S.Toast>
+      )}
+
       {/* ── 頂部工具列 ── */}
       <S.TopBar>
         <h2>我的商品</h2>
@@ -547,7 +584,7 @@ export default function ProductListPage() {
                       </li>
                       <li className="danger" onClick={(e) => {
                         e.preventDefault(); e.stopPropagation();
-                        handleDelete(p);
+                        requestDelete(p);
                         setMenuOpen(null);
                       }}>
                         🗑 刪除商品
@@ -722,6 +759,63 @@ export default function ProductListPage() {
             >
               {dupLoading ? "複製中…" : "確認複製"}
             </PrimaryButton>
+          </FormActions>
+        </div>
+      </Modal>
+
+      {/* ── 刪除商品確認 Modal ── */}
+      <Modal
+        open={!readOnly && openModal === "confirmDel"}
+        onClose={() => { if (!delLoading) { setOpenModal(null); setDelTarget(null); } }}
+        ariaLabel="確認刪除商品"
+      >
+        <div>
+          <h3>確認刪除商品</h3>
+          <p style={{ fontSize: 18, color: "var(--text)", margin: "0 0 8px" }}>
+            確定要刪除以下商品嗎？
+          </p>
+          <div style={{
+            background: "var(--warn-bg)",
+            border: "2px solid #f0b0bb",
+            borderRadius: "var(--radius-sm)",
+            padding: "16px 20px",
+            fontSize: 20,
+            fontWeight: 700,
+            color: "var(--warn)",
+            margin: "16px 0 8px",
+          }}>
+            🗑 {delTarget?.name ?? ""}
+          </div>
+          <p style={{ fontSize: 16, color: "var(--warn)", margin: "8px 0 0", fontWeight: 600 }}>
+            ⚠ 此動作無法復原，商品及其所有碳排放紀錄將永久刪除。
+          </p>
+          <FormActions>
+            <GhostButton
+              type="button"
+              disabled={delLoading}
+              onClick={() => { setOpenModal(null); setDelTarget(null); }}
+            >
+              取消
+            </GhostButton>
+            <button
+              type="button"
+              disabled={delLoading}
+              onClick={confirmDelete}
+              style={{
+                height: "var(--touch-target-lg)",
+                padding: "0 24px",
+                fontSize: 18,
+                fontWeight: 700,
+                background: delLoading ? "#ccc" : "var(--warn)",
+                color: "#fff",
+                border: "2px solid transparent",
+                borderRadius: "var(--radius-sm)",
+                cursor: delLoading ? "not-allowed" : "pointer",
+                transition: "background 140ms",
+              }}
+            >
+              {delLoading ? "刪除中…" : "確認刪除"}
+            </button>
           </FormActions>
         </div>
       </Modal>

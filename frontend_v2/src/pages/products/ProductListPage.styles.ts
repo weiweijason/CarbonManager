@@ -243,6 +243,39 @@ export const Fab = styled.button`
   }
 `;
 
+/* ─── 浮動通知 (Toast) ──────────────────────────────────────── */
+export const Toast = styled.div<{ $type: "error" | "info" | "ok" }>`
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  min-width: 280px;
+  max-width: 90vw;
+  padding: 16px 24px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  font-size: 17px;
+  font-weight: 600;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  animation: slideDown 200ms ease;
+
+  background: ${({ $type }) =>
+    $type === "error" ? "var(--warn)" :
+    $type === "ok"    ? "var(--ok)" :
+    "var(--text)"};
+  color: #fff;
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateX(-50%) translateY(-12px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+`;
+
 /* 向後相容 */
 export const PrimaryBtn = Fab;
 export const SecondaryBtn = styled.button`
