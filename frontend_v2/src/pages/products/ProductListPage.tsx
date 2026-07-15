@@ -250,12 +250,14 @@ export default function ProductListPage() {
   }
 
   // ---------- CRUD ----------
-  const [openModal, setOpenModal] = useState<null | "new" | "edit" | "newType">(null);
+  const [openModal, setOpenModal] = useState<null | "new" | "edit" | "newType" | "confirmDup">(null);
   const [newName, setNewName] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [editTypeId, setEditTypeId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [addError, setAddError] = useState("");
+  const [dupTarget, setDupTarget] = useState<ProductRow | null>(null);
+  const [dupLoading, setDupLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const btnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
@@ -297,16 +299,30 @@ export default function ProductListPage() {
     }
   }
 
-  async function handleDuplicate(p: ProductRow) {
+  /** 開啟確認視窗，真正的複製動作在 confirmDuplicate() */
+  function requestDuplicate(p: ProductRow) {
     if (readOnly) return;
+    setDupTarget(p);
+    setOpenModal("confirmDup");
+  }
+
+  /** 使用者在確認視窗按下「確認複製」後執行 */
+  async function confirmDuplicate() {
+    if (!dupTarget) return;
+    const p = dupTarget;
     const typeId = p._typeId ?? (tid !== "__all" ? tid : null);
-    if (!typeId) { alert("複製失敗：找不到商品所屬分類。"); return; }
+    if (!typeId) { alert("複製失敗：找不到商品所屬分類。"); setOpenModal(null); return; }
+    setDupLoading(true);
     try {
       const src = await apiGetProduct(typeId, p.id as any);
       await apiCreateProduct(typeId, { name: `${src.name}（複製）` });
+      setOpenModal(null);
+      setDupTarget(null);
       refresh(typeId);
     } catch (err: any) {
       alert("複製失敗：" + (err?.message || err));
+    } finally {
+      setDupLoading(false);
     }
   }
 
@@ -481,7 +497,7 @@ export default function ProductListPage() {
                       </li>
                       <li onClick={(e) => {
                         e.preventDefault(); e.stopPropagation();
-                        handleDuplicate(p);
+                        requestDuplicate(p);
                         setMenuOpen(null);
                       }}>
                         📋 複製商品
@@ -607,6 +623,51 @@ export default function ProductListPage() {
             <PrimaryButton type="submit">建立分類</PrimaryButton>
           </FormActions>
         </form>
+      </Modal>
+
+      {/* ── 複製商品確認 Modal ── */}
+      <Modal
+        open={!readOnly && openModal === "confirmDup"}
+        onClose={() => { if (!dupLoading) { setOpenModal(null); setDupTarget(null); } }}
+        ariaLabel="確認複製商品"
+      >
+        <div>
+          <h3>確認複製商品</h3>
+          <p style={{ fontSize: 18, color: "var(--text)", margin: "0 0 8px" }}>
+            確定要複製以下商品嗎？
+          </p>
+          <div style={{
+            background: "var(--accent-bg)",
+            border: "2px solid var(--line)",
+            borderRadius: "var(--radius-sm)",
+            padding: "16px 20px",
+            fontSize: 20,
+            fontWeight: 700,
+            color: "var(--accent-ink)",
+            margin: "16px 0 8px",
+          }}>
+            📋 {dupTarget?.name ?? ""}
+          </div>
+          <p style={{ fontSize: 16, color: "var(--muted)", margin: "8px 0 0" }}>
+            系統將建立一份名稱相同（後綴「複製」）的新商品，原商品不受影響。
+          </p>
+          <FormActions>
+            <GhostButton
+              type="button"
+              disabled={dupLoading}
+              onClick={() => { setOpenModal(null); setDupTarget(null); }}
+            >
+              取消
+            </GhostButton>
+            <PrimaryButton
+              type="button"
+              disabled={dupLoading}
+              onClick={confirmDuplicate}
+            >
+              {dupLoading ? "複製中…" : "確認複製"}
+            </PrimaryButton>
+          </FormActions>
+        </div>
       </Modal>
     </S.PageWrapper>
   );
