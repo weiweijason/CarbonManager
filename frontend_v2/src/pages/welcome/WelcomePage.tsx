@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Modal from "@/ui/components/Modal";
 import { PrimaryButton, GhostButton } from "@/ui/primitives/Button";
-import { Field, FormActions } from "@/ui/primitives/Form";
-// import { Container } from "@/ui/primitives/Layout";
+import { Field, FieldError, FormActions } from "@/ui/primitives/Form";
 import * as S from "./WelcomePage.styles";
 import { useNavigate } from "react-router-dom";
 
@@ -92,21 +91,23 @@ function LoginForm({ onDone }: { onDone: () => void }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <h3>登入</h3>
+      <h3>登入帳號</h3>
       <Field>
-        <label>電子郵件</label>
+        <label htmlFor="login-account">電子郵件</label>
         <input
-          type="text"
+          id="login-account"
+          type="email"
           required
           value={account}
           onChange={(e) => setAcc(e.target.value)}
-          placeholder="請輸入電子郵件"
+          placeholder="example@mail.com"
           autoComplete="username"
         />
       </Field>
       <Field>
-        <label>密碼</label>
+        <label htmlFor="login-pwd">密碼</label>
         <input
+          id="login-pwd"
           type="password"
           required
           value={password}
@@ -115,13 +116,13 @@ function LoginForm({ onDone }: { onDone: () => void }) {
           autoComplete="current-password"
         />
       </Field>
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
+      {error && <FieldError>{error}</FieldError>}
       <FormActions>
         <GhostButton type="button" onClick={onDone} disabled={loading}>
           取消
         </GhostButton>
         <PrimaryButton type="submit" disabled={loading}>
-          {loading ? "處理中..." : "登入"}
+          {loading ? "登入中…" : "登入"}
         </PrimaryButton>
       </FormActions>
     </form>
@@ -180,86 +181,92 @@ function SignupForm({ onDone }: { onDone: () => void }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <h3>註冊</h3>
+      <h3>建立新帳號</h3>
 
       <Field>
-        <label>電子郵件</label>
+        <label htmlFor="reg-account">電子郵件</label>
         <input
-          type="text"
+          id="reg-account"
+          type="email"
           required
           value={account}
           onChange={(e) => setAcc(e.target.value)}
-          placeholder="請輸入電子郵件"
+          placeholder="example@mail.com"
           autoComplete="username"
         />
       </Field>
 
       <Field>
-        <label>使用者名稱</label>
+        <label htmlFor="reg-name">使用者名稱</label>
         <input
+          id="reg-name"
           type="text"
           required
           value={userName}
           onChange={(e) => setUserName(e.target.value)}
-          placeholder="請輸入使用者名稱"
+          placeholder="請輸入您的名稱"
         />
       </Field>
 
       <Field>
-        <label>密碼</label>
+        <label htmlFor="reg-pwd">密碼</label>
         <input
+          id="reg-pwd"
           type="password"
           required
           value={password}
           onChange={(e) => setPwd(e.target.value)}
-          placeholder="請輸入密碼"
+          placeholder="至少 8 個字元"
           autoComplete="new-password"
         />
       </Field>
 
       <Field>
-        <label>確認密碼</label>
+        <label htmlFor="reg-confirm">確認密碼</label>
         <input
+          id="reg-confirm"
           type="password"
           required
           value={confirmPwd}
           onChange={(e) => setConfirmPwd(e.target.value)}
-          placeholder="再次輸入密碼"
+          placeholder="再次輸入相同密碼"
           autoComplete="new-password"
         />
       </Field>
 
       <Field>
-        <label>角色</label>
+        <label htmlFor="reg-role">我的身份</label>
         <select
+          id="reg-role"
           value={role}
           onChange={(e) => setRole(e.target.value as BackendUserType)}
         >
-          <option value="shop">茶行</option>
-          <option value="customer">消費者</option>
+          <option value="shop">🏪 茶行業者</option>
+          <option value="customer">👤 消費者</option>
         </select>
       </Field>
 
       {role === "shop" && (
         <Field>
-          <label>茶行名稱</label>
+          <label htmlFor="reg-shop">茶行名稱</label>
           <input
+            id="reg-shop"
             type="text"
             value={shopName}
             onChange={(e) => setShopName(e.target.value)}
-            placeholder="請輸入茶行名稱"
+            placeholder="請輸入茶行或品牌名稱"
             required
           />
         </Field>
       )}
 
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
+      {error && <FieldError>{error}</FieldError>}
       <FormActions>
         <GhostButton type="button" onClick={onDone} disabled={loading}>
           取消
         </GhostButton>
         <PrimaryButton type="submit" disabled={loading}>
-          {loading ? "建立中..." : "建立帳號"}
+          {loading ? "建立中…" : "建立帳號"}
         </PrimaryButton>
       </FormActions>
     </form>

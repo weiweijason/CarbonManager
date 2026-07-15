@@ -85,15 +85,15 @@ export default function AccountMenu() {
     <div style={{ position: "relative", display: "inline-block" }}>
       <WhiteButton
         ref={btnRef}
+        $small
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={(e) => {
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        style={{ gap: 6 }}
       >
-        <span aria-hidden>☰</span>
+        <span aria-hidden>👤</span>
         <span>帳號</span>
       </WhiteButton>
 
@@ -109,7 +109,7 @@ export default function AccountMenu() {
             handleLogout();
           }}
         >
-          登出
+          🚪 登出
         </li>
         <li
           className="danger"
@@ -119,7 +119,7 @@ export default function AccountMenu() {
             handleDelete();
           }}
         >
-          刪除帳號
+          🗑 刪除帳號
         </li>
       </DropdownMenu>
     </div>

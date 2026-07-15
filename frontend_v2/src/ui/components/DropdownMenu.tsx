@@ -3,32 +3,55 @@ import ReactDOM from "react-dom";
 import styled from "styled-components";
 
 const Menu = styled.ul`
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 6px;
+  position: fixed;
   background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  border: 1.5px solid var(--line);
   list-style: none;
-  padding: 6px 0;
-  min-width: 140px;
+  padding: 8px 0;
+  min-width: 180px;
   z-index: 3000;
 
   li {
-    padding: 10px 14px;
-    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--text);
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background 140ms;
+    min-height: var(--touch-target);
 
     &:hover {
-      background: #f3f3f3;
+      background: var(--accent-bg);
+      color: var(--accent-ink);
+    }
+
+    &:active {
+      background: var(--chip);
+    }
+
+    &:focus-visible {
+      outline: 3px solid var(--accent);
+      outline-offset: -3px;
     }
 
     &.danger {
-      color: #d33;
-      font-weight: 500;
+      color: var(--warn);
+
+      &:hover {
+        background: var(--warn-bg);
+        color: var(--warn);
+      }
     }
+  }
+
+  /* 分隔線 */
+  li + li {
+    border-top: 1px solid #f0f4ef;
   }
 `;
 
@@ -53,21 +76,20 @@ export default function DropdownMenu({
     }
     if (open) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
+  }, [open, onClose]);
 
   if (!open) return null;
 
   const rect = anchorRef.current?.getBoundingClientRect();
   const style: React.CSSProperties = rect
     ? {
-        position: "absolute",
-        top: rect.bottom + 6,
-        left: rect.right - 140, // dropdown 寬度補正
+        top: rect.bottom + 8,
+        right: window.innerWidth - rect.right,
       }
     : {};
 
   return ReactDOM.createPortal(
-    <Menu ref={ref} style={style}>
+    <Menu ref={ref} style={style} role="menu">
       {children}
     </Menu>,
     document.body
