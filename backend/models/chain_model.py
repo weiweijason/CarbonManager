@@ -1,7 +1,6 @@
 # backend/models/chain_model.py
-import json
-from typing import Optional 
 from db_connection import get_db
+from routes.helpers import to_taipei_iso
 
 def fetch_emission(emission_id: int): 
     sql = """
@@ -13,7 +12,6 @@ def fetch_emission(emission_id: int):
             e.tag_id, 
             e.quantity, 
             e.created_by, 
-            e.sort_order, 
             e.created_at, 
             p.organization_id, 
             p.type_id, 
@@ -41,9 +39,8 @@ def build_payload(em: dict) -> dict:
         "tag_id": em["tag_id"],
         "quantity": em["quantity"],
         "created_by": em["created_by"],
-        "sort_order": em["sort_order"],
         "product_name": em["product_name"],
-        "timestamp": em["created_at"].isoformat() if em["created_at"] else None,
+        "timestamp": to_taipei_iso(em["created_at"]),
     }
 
 

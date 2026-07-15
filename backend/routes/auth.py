@@ -63,10 +63,9 @@ def register():
             "access_token": tokens["access_token"],
             "refresh_token": tokens["refresh_token"],
             "account": account,
-            "password": password,
             "user_name": user_name,
             "role": user_type,
-            "organization_id": display_id("organizations", org_id)
+            "organization_id": display_id("organizations", org_id) if org_id is not None else None
             },201)
     
 @auth_bp.post("/login")
@@ -98,7 +97,7 @@ def login():
             "access_token": tokens["access_token"],
             "refresh_token": tokens["refresh_token"],
             "role":user["user_type"],
-            "organization_id": display_id("users", user["organization_id"]),
+            "organization_id": display_id("organizations", user["organization_id"]) if user["organization_id"] is not None else None,
             }, 200,)
 
 @auth_bp.post("/refresh")
@@ -108,10 +107,16 @@ def refresh():
     claims = get_jwt()
     account = claims.get("account")
     user_type = claims.get("user_type", "customer")
+    organization_id = claims.get("organization_id")
 
     # issue a new short-lived access token
     new_access = create_access_token(
-        identity=user_id, additional_claims={"account": account, "user_type": user_type}
+        identity=user_id,
+        additional_claims={
+            "account": account,
+            "user_type": user_type,
+            "organization_id": organization_id,
+        },
     )
     return json_response({"access_token": new_access}, 200)
 
@@ -128,7 +133,7 @@ def me():
             "user_name": user["name"],
             "email_account": user["email_account"], 
             "user_type": user["user_type"],
-            "organization_id": display_id("organizations", user["organization_id"]),    
+            "organization_id": display_id("organizations", user["organization_id"]) if user["organization_id"] is not None else None,
         }, 200)
 
 @auth_bp.put("/me")

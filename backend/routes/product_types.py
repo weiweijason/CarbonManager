@@ -16,7 +16,8 @@ from routes.helpers import(
     parse_display_id,
     # _is_shop,
     _validate_name,
-    json_response
+    json_response,
+    to_taipei_iso,
 )
 
 product_types_bp = Blueprint("product_types", __name__, url_prefix="/product_types")  
@@ -42,8 +43,8 @@ def add_type():
                 "product_type_name": pt["name"],
                 "organization_id": display_id("organizations", org["id"]),
                 "organization_name": pt["organization_name"],  
-                "created_at": pt["created_at"].isoformat() if pt["created_at"] is not None else None,
-                "updated_at": pt["updated_at"].isoformat() if pt["updated_at"] is not None else None,
+                "created_at": to_taipei_iso(pt["created_at"]),
+                "updated_at": to_taipei_iso(pt["updated_at"]),
                 "order_id": pt["order_id"]
                 }
             , status=201)
@@ -140,8 +141,8 @@ def get_pt(product_type_id):
                 "product_type_name": pt["name"],
                 "organization_id": display_id("organizations", pt["organization_id"]),
                 "organization_name": pt["organization_name"],
-                "created_at": pt["created_at"].isoformat() if pt["created_at"] is not None else None,
-                "updated_at": pt["updated_at"].isoformat() if pt["updated_at"] is not None else None,
+                "created_at": to_taipei_iso(pt["created_at"]),
+                "updated_at": to_taipei_iso(pt["updated_at"]),
                 "order_id": pt["order_id"]
                 }, 200)
         else:

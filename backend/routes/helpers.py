@@ -1,6 +1,8 @@
 # backend/helpers.py
 
 import json
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from flask import Response
 
 PREFIXES = {
@@ -14,6 +16,8 @@ PREFIXES = {
     "organizations": "ORG",
 }
 
+TAIPEI_TZ = ZoneInfo("Asia/Taipei")
+
 def display_id(table: str, numeric_id: int) -> str:
     return f"{PREFIXES[table]}{numeric_id}"
 
@@ -26,6 +30,27 @@ def parse_display_id(value: str, expected_prefix: str) -> int:
         raise ValueError("Display ID must end with digits")
 
     return int(suffix)
+
+
+def parse_display_id_safe(value: str, expected_prefix: str) -> tuple[int | None, str | None]:
+    """Safely parse prefixed display IDs without raising exceptions."""
+    if not value:
+        return None, "missing ID value"
+    try:
+        return parse_display_id(value, expected_prefix), None
+    except ValueError as exc:
+        return None, str(exc)
+
+
+def to_taipei_iso(dt: datetime | None) -> str | None:
+    """Convert datetime to ISO-8601 in Asia/Taipei timezone."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=TAIPEI_TZ)
+    else:
+        dt = dt.astimezone(TAIPEI_TZ)
+    return dt.isoformat(timespec="seconds")
 
 
 def json_response(data, status=200):

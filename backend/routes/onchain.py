@@ -1,22 +1,32 @@
 # backend/routes/onchain.py
 from flask import Blueprint, request, jsonify
+from flask_jwt_extended import get_jwt_identity, jwt_required
 from db_connection import get_db
 import os, json
+from hmac import compare_digest
+
+from routes.helpers import to_taipei_iso
 
 onchain_bp = Blueprint("onchain", __name__)
 
-CHAIN_WEBHOOK_SECRET = os.getenv("CHAIN_WEBHOOK_SECRET", )  # set in .env 
+CHAIN_WEBHOOK_SECRET = os.getenv("CHAIN_WEBHOOK_SECRET", "")  # set in .env
 
 # ---- Helper Functions ---- #
-def fetch_emission(conn, emission_id: int): # Fetch emission details from DB
+def fetch_emission(conn, emission_id: int, owner_user_id: int | None = None): # Fetch emission details from DB
     cur = conn.cursor(dictionary=True)
     try:
-        cur.execute("""
-        SELECT e.id, e.product_id, e.stage_id, e.factor_id, e.tag_id, e.quantity, e.created_by, e.sort_order, e.created_at, p.organization_id, p.type_id, p.name AS product_name
+        sql = """
+        SELECT e.id, e.product_id, e.stage_id, e.factor_id, e.tag_id, e.quantity, e.created_by, e.created_at,
+               p.organization_id, p.type_id, p.name AS product_name, p.owner_user_id
         FROM emissions e
         JOIN products p ON p.id = e.product_id
         WHERE e.id = %s
-        """, (emission_id,))
+        """
+        params = [emission_id]
+        if owner_user_id is not None:
+            sql += " AND p.owner_user_id = %s"
+            params.append(owner_user_id)
+        cur.execute(sql, tuple(params))
         return cur.fetchone()
     finally:
         cur.close()
@@ -31,19 +41,19 @@ def build_payload(em: dict) -> dict:        # Build payload for on-chain submiss
         "tag_id": em["tag_id"],
         "quantity": em["quantity"],
         "created_by": em["created_by"],
-        "sort_order": em["sort_order"],
         "product_name": em["product_name"],
-        "timestamp": em["created_at"].isoformat() if em["created_at"] else None,
+        "timestamp": to_taipei_iso(em["created_at"]),
     }
 
 
 # ---- API Endpoints ---- #
 # POST: Create or update on-chain job for an emission
 @onchain_bp.post("/onchain/emissions/<int:emission_id>")
+@jwt_required()
 def create_onchain_job(emission_id: int):
-    body = request.get_json(silent=True) or {}
+    uid = int(get_jwt_identity())
     with get_db() as conn:
-        em = fetch_emission(conn, emission_id) 
+        em = fetch_emission(conn, emission_id, uid)
         if not em:
             return jsonify(error="emission not found"), 404
 
@@ -63,8 +73,13 @@ def create_onchain_job(emission_id: int):
 
 # GET: Fetch on-chain status for an emission
 @onchain_bp.get("/onchain/emissions/<int:emission_id>")
+@jwt_required()
 def get_onchain_status(emission_id: int):
+    uid = int(get_jwt_identity())
     with get_db() as conn:
+        em = fetch_emission(conn, emission_id, uid)
+        if not em:
+            return jsonify(error="emission not found"), 404
         cur = conn.cursor(dictionary=True)
         cur.execute("""
           SELECT emission_id, status, tx_hash, payload_json, error_msg, created_at, updated_at
@@ -79,15 +94,19 @@ def get_onchain_status(emission_id: int):
         row["payload_json"] = json.loads(row["payload_json"]) if row["payload_json"] else None
     except Exception:
         pass
+    row["created_at"] = to_taipei_iso(row.get("created_at"))
+    row["updated_at"] = to_taipei_iso(row.get("updated_at"))
     return jsonify(row)
 
 # PUT: Callback for chain-service to update status
 @onchain_bp.put("/onchain/callback")
 def onchain_callback():
+    if not CHAIN_WEBHOOK_SECRET:
+        return jsonify(error="service unavailable"), 503
     
     # ERROR 401: Verify secret header
-    secret = request.headers.get("X-Chain-Secret")
-    if secret != CHAIN_WEBHOOK_SECRET:
+    secret = request.headers.get("X-Chain-Secret") or ""
+    if not compare_digest(secret, CHAIN_WEBHOOK_SECRET):
         return jsonify(error="unauthorized"), 401
 
     # ERROR 400: Parse JSON body

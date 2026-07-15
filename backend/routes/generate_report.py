@@ -9,6 +9,7 @@ from models.emissions_model import get_emissions_by_product
 from models.products_model import fetch_product
 from models.factor_model import get_factor
 from flask import current_app
+from routes.helpers import to_taipei_iso
 
 TARGET_STAGE_IN_EXCEL = {
     "原料取得": {
@@ -102,9 +103,9 @@ def generate_json(product_id: int):
             "material": em.get("name"),
             "factor_id": em.get("factor_id"),
             "amount": em.get("quantity"),
-            "unit": get_factor(em.get("factor_id"))["unit"], # from factor
+            "unit": (get_factor(em.get("factor_id")) or {}).get("unit", ""), # from factor
             "emission_amount": em.get("emission_amount"),
-            "timestamp": em.get("created_at").isoformat(),
+            "timestamp": to_taipei_iso(em.get("created_at")),
         }
         
         stage_dict[stage_id].append(record)

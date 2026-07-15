@@ -65,23 +65,23 @@ def create_app(config_class=Config):
         return SWAGGER_HTML
 
     # List existing routes
-    @app.route("/_routes")
-    def list_routes():
-        routes = []
-        for rule in app.url_map.iter_rules():
-            routes.append({
-                "endpoint": rule.endpoint,
-                "methods": list(rule.methods),
-                "rule": str(rule)
-            })
-        
-        return jsonify(routes)
+    if app.config.get("DEBUG"):
+        @app.route("/_routes")
+        def list_routes():
+            routes = []
+            for rule in app.url_map.iter_rules():
+                routes.append({
+                    "endpoint": rule.endpoint,
+                    "methods": list(rule.methods),
+                    "rule": str(rule)
+                })
+            return jsonify(routes)
     
     return app
 
 
 app = create_app()
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(debug=Config.DEBUG, host="0.0.0.0", port=5000)

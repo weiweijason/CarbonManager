@@ -5,8 +5,11 @@ from datetime import timedelta
 
 class Config:
     # Security settings
-    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY") or "jwt-secret-key"
+    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
+    if not JWT_SECRET_KEY:
+        raise RuntimeError("JWT_SECRET_KEY is required")
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
+    CORS_ORIGINS = [origin.strip() for origin in os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",") if origin.strip()]
 
     # Database configuration
     DB_CONFIG = {

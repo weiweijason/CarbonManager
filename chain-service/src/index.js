@@ -5,6 +5,7 @@ import axios from "axios";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import crypto from "crypto";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,9 +37,37 @@ if (!process.env.CONTRACT_ADDRESS) {
   throw new Error("Missing CONTRACT_ADDRESS in .env");
 }
 const contract = new ethers.Contract(process.env.CONTRACT_ADDRESS, contractJson, wallet);
+const CHAIN_SERVICE_API_KEY = process.env.CHAIN_SERVICE_API_KEY || "";
+const CALLBACK_URL = process.env.CALLBACK_URL || "";
+const CALLBACK_SECRET = process.env.CHAIN_SECRET || "";
+
+if (!CHAIN_SERVICE_API_KEY) {
+  throw new Error("Missing CHAIN_SERVICE_API_KEY in .env");
+}
+if (!CALLBACK_URL) {
+  throw new Error("Missing CALLBACK_URL in .env");
+}
+if (!CALLBACK_SECRET) {
+  throw new Error("Missing CHAIN_SECRET in .env");
+}
+
+function safeEqual(a, b) {
+  const left = Buffer.from(String(a || ""), "utf8");
+  const right = Buffer.from(String(b || ""), "utf8");
+  if (left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
+}
+
+function requireInternalAuth(req, res, next) {
+  const token = req.headers["x-chain-api-key"];
+  if (!safeEqual(token, CHAIN_SERVICE_API_KEY)) {
+    return res.status(401).json({ ok: false, error: "unauthorized" });
+  }
+  next();
+}
 
 // POST /send: 後端呼叫這個 API 觸發上鏈
-app.post("/send", async (req, res) => {
+app.post("/send", requireInternalAuth, async (req, res) => {
   const { emission_id, payload } = req.body;
 
   if (!emission_id || !payload) {
@@ -54,9 +83,9 @@ app.post("/send", async (req, res) => {
     console.log(`success: txHash=${tx.hash}`);
 
     await axios.put(
-      process.env.CALLBACK_URL,
+      CALLBACK_URL,
       { emission_id, status: "submitted", tx_hash: tx.hash },
-      { headers: { "X-Chain-Secret": process.env.CHAIN_SECRET } }
+      { headers: { "X-Chain-Secret": CALLBACK_SECRET } }
     );
 
     res.json({ ok: true, txHash: tx.hash });
@@ -65,9 +94,9 @@ app.post("/send", async (req, res) => {
 
     try {
       await axios.put(
-        process.env.CALLBACK_URL,
+        CALLBACK_URL,
         { emission_id, status: "failed", error_msg: err.message },
-        { headers: { "X-Chain-Secret": process.env.CHAIN_SECRET || ""} }
+        { headers: { "X-Chain-Secret": CALLBACK_SECRET } }
       );
     } catch (callbackErr) {
       console.error("Callback failed:", callbackErr);
@@ -79,7 +108,7 @@ app.post("/send", async (req, res) => {
 
 // GET /record/:id
 // fetching record from blockchain
-app.get("/record/:id", async(req, res) => {
+app.get("/record/:id", requireInternalAuth, async(req, res) => {
   const recordId = req.params.id;
 
   if (recordId === undefined) {

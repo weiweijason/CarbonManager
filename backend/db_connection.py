@@ -9,6 +9,11 @@ def get_db():
     conn = None
     try:
         conn = mysql.connector.connect(**Config.DB_CONFIG)
+        cur = conn.cursor()
+        try:
+            cur.execute("SET time_zone = '+08:00'")
+        finally:
+            cur.close()
         yield conn
     except mysql.connector.Error as e:
         print(f"Error connecting to MySQL: {e}")
