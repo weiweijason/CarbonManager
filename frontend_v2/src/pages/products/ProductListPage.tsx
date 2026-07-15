@@ -16,6 +16,11 @@ import {
   apiUpdateProduct,
   UIProduct,
 } from "@/api/products";
+import {
+  apiListStepsByStage,
+  apiCreateStep,
+  StageId,
+} from "@/api/lifecycle";
 
 import {
   apiGetOrCreateDefaultType,
@@ -257,6 +262,7 @@ export default function ProductListPage() {
   const [addError, setAddError] = useState("");
   const [dupTarget, setDupTarget] = useState<ProductRow | null>(null);
   const [dupLoading, setDupLoading] = useState(false);
+  const [dupStatus, setDupStatus] = useState("");
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const btnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
@@ -305,6 +311,15 @@ export default function ProductListPage() {
     setOpenModal("confirmDup");
   }
 
+  /** 所有生命週期階段 ID（與後端 stages 對應） */
+  const ALL_STAGE_IDS: StageId[] = [
+    "raw",
+    "manufacture",
+    "distribution",
+    "use",
+    "disposal",
+  ];
+
   /** 使用者在確認視窗按下「確認複製」後執行 */
   async function confirmDuplicate() {
     if (!dupTarget) return;
@@ -312,11 +327,40 @@ export default function ProductListPage() {
     const typeId = p._typeId ?? (tid !== "__all" ? tid : null);
     if (!typeId) { alert("複製失敗：找不到商品所屬分類。"); setOpenModal(null); return; }
     setDupLoading(true);
+    setDupStatus("建立新商品…");
     try {
-      // p.name is already available in the UI state; no extra GET needed
-      await apiCreateProduct(typeId, { name: `${p.name}（複製）` });
+      // 1. 建立新商品（名稱加「複製」後綴）
+      const newProduct = await apiCreateProduct(typeId, { name: `${p.name}（複製）` });
+      const newProductId = newProduct.id;
+      const srcProductId = p.id;
+
+      // 2. 逐一複製每個階段的生產步驟
+      let totalSteps = 0;
+      for (const stageId of ALL_STAGE_IDS) {
+        setDupStatus(`複製步驟：${stageId}…`);
+        try {
+          const steps = await apiListStepsByStage(stageId, { productId: srcProductId });
+          for (const step of steps) {
+            if (!step.tag_id) continue; // 沒有 tag_id 的步驟無法建立
+            await apiCreateStep(newProductId, {
+              stage_id: stageId,
+              tag_id: step.tag_id,
+              name: step.name,
+              sort_order: typeof step.sort_order === "number" ? step.sort_order : 0,
+            });
+            totalSteps++;
+          }
+        } catch {
+          // 單一階段失敗不中斷整體複製
+        }
+      }
+
+      setDupStatus(`完成！已複製 ${totalSteps} 個步驟`);
+      await new Promise((r) => setTimeout(r, 800)); // 短暫顯示完成訊息
+
       setOpenModal(null);
       setDupTarget(null);
+      setDupStatus("");
       refresh(typeId);
     } catch (err: any) {
       alert("複製失敗：" + (err?.message || err));
@@ -648,8 +692,21 @@ export default function ProductListPage() {
             📋 {dupTarget?.name ?? ""}
           </div>
           <p style={{ fontSize: 16, color: "var(--muted)", margin: "8px 0 0" }}>
-            系統將建立一份名稱相同（後綴「複製」）的新商品，原商品不受影響。
+            系統將建立一份相同名稱（後綴「複製」）的新商品，並複製所有生產步驟，原商品不受影響。
           </p>
+          {dupStatus && (
+            <p style={{
+              fontSize: 16,
+              color: "var(--accent-ink)",
+              background: "var(--accent-bg)",
+              borderRadius: "var(--radius-sm)",
+              padding: "10px 14px",
+              margin: "14px 0 0",
+              fontWeight: 600,
+            }}>
+              ⏳ {dupStatus}
+            </p>
+          )}
           <FormActions>
             <GhostButton
               type="button"
