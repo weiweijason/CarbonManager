@@ -113,42 +113,40 @@ export async function apiCreateProduct(
   return toUIProduct(raw);
 }
 
-// GET /api/product_types/:typeId/products/:productId
+// GET /api/products/:productId
 export async function apiGetProduct(
-  typeId: string,
+  _typeId: string,
   productId: string | number
 ): Promise<UIProduct> {
   const raw = await http.get<any>(
-    `/api/product_types/${encodeId(
-      typeId
-    )}/products/${encodeId(productId)}`
+    `/api/products/${encodeId(productId)}`
   );
   return toUIProduct(raw);
 }
 
-// PUT /api/product_types/:typeId/products/:productId
+// PUT /api/products/:productId
+// Backend expects { product_type_id, new_product_name, serial_number?, code? }
 export async function apiUpdateProduct(
   typeId: string,
   productId: string | number,
-  body: { name?: string }
+  body: { name?: string; serial_number?: string; code?: string }
 ): Promise<UIProduct> {
   const raw = await http.put<any>(
-    `/api/product_types/${encodeId(
-      typeId
-    )}/products/${encodeId(productId)}`,
-    body
+    `/api/products/${encodeId(productId)}`,
+    {
+      product_type_id: typeId,
+      new_product_name: body.name,
+      serial_number: body.serial_number,
+      code: body.code,
+    }
   );
   return toUIProduct(raw);
 }
 
-// DELETE /api/product_types/:typeId/products/:productId
+// DELETE /api/products/:productId
 export async function apiDeleteProduct(
-  typeId: string,
+  _typeId: string,
   productId: string | number
 ): Promise<void> {
-  await http.delete(
-    `/api/product_types/${encodeId(
-      typeId
-    )}/products/${encodeId(productId)}`
-  );
+  await http.delete(`/api/products/${encodeId(productId)}`);
 }
