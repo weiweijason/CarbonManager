@@ -9,3 +9,6 @@ mysql-connector-python==8.3.0
 
 openpyxl==3.1.2
 
+# IANA timezone database for zoneinfo on Alpine Linux (no system tzdata)
+tzdata
+

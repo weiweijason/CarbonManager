@@ -52,8 +52,8 @@ services:
       migrator:
          condition: service_completed_successfully
     env_file: .env
-    ports:
-      - "5001:5000"
+    # port 5001 intentionally not exposed externally;
+    # nginx reaches backend via Docker internal network (backend:5000)
     volumes:
       - ./backend:/app
     command: ["python", "app.py"]

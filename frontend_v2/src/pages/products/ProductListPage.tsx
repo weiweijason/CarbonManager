@@ -14,7 +14,6 @@ import {
   apiCreateProduct,
   apiDeleteProduct,
   apiUpdateProduct,
-  apiGetProduct,
   UIProduct,
 } from "@/api/products";
 
@@ -314,8 +313,8 @@ export default function ProductListPage() {
     if (!typeId) { alert("複製失敗：找不到商品所屬分類。"); setOpenModal(null); return; }
     setDupLoading(true);
     try {
-      const src = await apiGetProduct(typeId, p.id as any);
-      await apiCreateProduct(typeId, { name: `${src.name}（複製）` });
+      // p.name is already available in the UI state; no extra GET needed
+      await apiCreateProduct(typeId, { name: `${p.name}（複製）` });
       setOpenModal(null);
       setDupTarget(null);
       refresh(typeId);
