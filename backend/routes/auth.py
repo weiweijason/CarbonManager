@@ -1,4 +1,6 @@
 # backend/routes/auth.py
+import re
+import logging
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import (
     create_access_token,
@@ -21,25 +23,72 @@ from models.user_model import (
 )
 from routes.helpers import display_id, parse_display_id, json_response
 
+logger = logging.getLogger(__name__)
+
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth") 
 
+# ---- 密碼強度驗證 ----
+def validate_password_strength(password: str) -> tuple[bool, str | None]:
+    """驗證密碼強度：至少 8 字元，包含大小寫英文和數字。"""
+    if not password or len(password) < 8:
+        return False, "密碼至少需要 8 個字元"
+    if len(password) > 128:
+        return False, "密碼不得超過 128 個字元"
+    if not re.search(r'[A-Z]', password):
+        return False, "密碼需包含至少一個大寫字母"
+    if not re.search(r'[a-z]', password):
+        return False, "密碼需包含至少一個小寫字母"
+    if not re.search(r'[0-9]', password):
+        return False, "密碼需包含至少一個數字"
+    return True, None
+
+# ---- Email 格式驗證 ----
+def validate_email_format(email: str) -> tuple[bool, str | None]:
+    """基本的 email 格式驗證。"""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if not re.match(pattern, email):
+        return False, "無效的電子郵件格式"
+    return True, None
+
 @auth_bp.post("/register")
+@limiter.limit("5 per hour")  # 註冊：每小時最多 5 次
 def register():
     data = request.get_json(force=True)
     account = (data.get("account") or "").strip().lower()
     password = data.get("password")
-    user_name = data.get("user_name")
+    user_name = (data.get("user_name") or "").strip()
     user_type = (data.get("role") or "customer").strip().lower()
     org_name = (data.get("organization_name") or "").strip() if user_type == "shop" else None
 
+    # 基本欄位驗證
     if not account or not password or not user_name:
-        return json_response({"status": "account, password, and user_name are required"}, status=400)
+        return json_response({"error": "account, password, and user_name are required"}, status=400)
+    
+    # Email 格式驗證
+    email_valid, email_err = validate_email_format(account)
+    if not email_valid:
+        return json_response({"error": email_err}, status=400)
+    
+    # 密碼強度驗證
+    pwd_valid, pwd_err = validate_password_strength(password)
+    if not pwd_valid:
+        return json_response({"error": pwd_err}, status=400)
+    
+    # 使用者名稱長度驗證
+    if len(user_name) > 100:
+        return json_response({"error": "user_name must be at most 100 characters"}, status=400)
+    
     if user_type not in ("customer", "shop"):
-        return json_response({"status":"invalid user_type"}, 400)
+        return json_response({"error": "invalid user_type"}, 400)
     if user_type == "shop" and not org_name:
-        return json_response({"status": "org_name required for shop registration"}, 400)
+        return json_response({"error": "org_name required for shop registration"}, 400)
+    if len(org_name or "") > 200:
+        return json_response({"error": "organization_name must be at most 200 characters"}, status=400)
+    
     if get_user_by_account(account):
-        return json_response({"status": "account already registered"}, 409)
+        return json_response({"error": "account already registered"}, 409)
+    
+    logger.info(f"New user registration: account={account}, user_type={user_type}")
 
     # Shop Owners
     org_id = None
@@ -69,6 +118,8 @@ def register():
             },201)
     
 @auth_bp.post("/login")
+@limiter.limit("10 per hour")  # 登入：每小時最多 10 次
+@limiter.limit("3 per minute")  # 防止暴力攻擊：每分鐘最多 3 次
 def login():
     data = request.get_json(force=True)
     account = (data.get("account") or "").strip().lower()
@@ -83,7 +134,9 @@ def login():
 
     # Expect user to include 'password_hash'
     if not verify_password(user["password_hash"], password):
-        return jsonify(error="invalid credentials"), 401
+        return json_response({"error": "invalid credentials"}, status=401)
+    
+    logger.info(f"User login: account={account}")
 
     tokens = generate_tokens(
         user["id"],
@@ -126,7 +179,7 @@ def me():
     user_id = int(get_jwt_identity())
     user = get_user_by_id(user_id)
     if not user:
-        return jsonify(error="user not found"), 404
+        return json_response({"error": "user not found"}, status=404)
     return json_response(
         {
             "user_id": display_id("users", user["id"]),
@@ -142,12 +195,12 @@ def update_me():
     user_id = int(get_jwt_identity())
     user = get_user_by_id(user_id)
     if not user:
-        return json_response({"error 404": "user not found"}, 404)
+        return json_response({"error": "user not found"}, status=404)
     data = request.get_json(force=True)
     new_user_type = (data.get("user_type") or "").strip().lower()
     new_org_name = data.get("organization_name")
     if new_user_type not in ("customer", "shop"):
-        return json_response({"error 400": "invalid user type"}, 400)
+        return json_response({"error": "invalid user type"}, status=400)
     if new_org_name is not None and new_user_type == "shop":
         org = get_organization_by_name(new_org_name)
         if not org:

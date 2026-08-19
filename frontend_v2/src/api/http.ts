@@ -4,6 +4,20 @@
 // - Automatically adds Bearer token from localStorage or override
 // - Unified error handling and JSON parsing
 // ====================================================================
+
+// 自定義錯誤類別
+class ApiError extends Error {
+  public status: number;
+  public details?: any;
+
+  constructor(message: string, status: number, details?: any) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.details = details;
+  }
+}
+
 let baseURL = (import.meta.env.VITE_API_BASE as string) ?? "";
 let overrideAuthToken: string | null = null;
 let onUnauthorized: (() => void) | null = null;
@@ -74,7 +88,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     res = await fetch(url, reqInit);
   } catch (err: any) {
     const m = err?.message || String(err);
-    throw new Error(`[fetch] Failed to fetch ${url} - ${m}`);
+    throw new ApiError(`網路連線失敗: ${m}`, 0);
   }
 
   // Notify caller on 401 (e.g., to clear tokens/UI)
@@ -86,22 +100,24 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   // Normalize non-2xx errors (try to extract server message)
   if (!res.ok) {
-    let msg = `HTTP ${res.status} ${res.statusText}`;
     const ctErr = res.headers.get("content-type") || "";
+    let message = `HTTP ${res.status} ${res.statusText}`;
+    let details: any = null;
+    
     try {
       if (ctErr.includes("application/json")) {
         const j = await res.json();
-        const bodyMsg =
-          (typeof j === "string" && j) ||
-          (j && (j.message || j.detail)) ||
-          JSON.stringify(j);
-        if (bodyMsg) msg += ` - ${bodyMsg}`;
+        details = j;
+        // 優先使用後端回傳的 error 欄位
+        const bodyMsg = j.error || j.message || j.detail || j.status;
+        if (bodyMsg) message = bodyMsg;
       } else {
         const t = await res.text();
-        if (t) msg += ` - ${t}`;
+        if (t) message = t;
       }
     } catch {}
-    throw new Error(msg);
+    
+    throw new ApiError(message, res.status, details);
   }
 
   // No content
@@ -161,6 +177,51 @@ export const http = {
     return baseURL;
   },
 };
+
+// 導出自定義錯誤類別
+export { ApiError };
+
+// 錯誤處理輔助函式
+export function isApiError(err: any): err is ApiError {
+  return err instanceof ApiError;
+}
+
+export function getErrorMessage(err: any): string {
+  if (err instanceof ApiError) {
+    return err.message;
+  }
+  if (err instanceof Error) {
+    return err.message;
+  }
+  return String(err);
+}
+
+export function getUserFriendlyMessage(err: any): string {
+  if (err instanceof ApiError) {
+    // 根據狀態碼回傳使用者友善的訊息
+    switch (err.status) {
+      case 400:
+        return err.message || "請求參數錯誤，請檢查輸入內容";
+      case 401:
+        return "登入已過期，請重新登入";
+      case 403:
+        return "您沒有權限執行此操作";
+      case 404:
+        return "找不到要求的資源";
+      case 409:
+        return err.message || "資源已存在";
+      case 429:
+        return "操作過於頻繁，請稍後再試";
+      case 500:
+        return "伺服器內部錯誤，請稍後再試";
+      case 0:
+        return "網路連線失敗，請檢查網路設定";
+      default:
+        return err.message || "發生未知錯誤";
+    }
+  }
+  return getErrorMessage(err);
+}
 
 // Initialize base URL once
 setBaseURL(baseURL || "");

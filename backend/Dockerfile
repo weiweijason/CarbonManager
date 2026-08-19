@@ -1,5 +1,4 @@
 FROM python:3.13-alpine
-# FROM python:3.11-slim
 
 WORKDIR /app
 COPY requirements.txt .
@@ -12,6 +11,6 @@ COPY . .
 # Expose the port the app runs on
 EXPOSE 5000
 
-# Command to run the application
-CMD ["gunicorn", "-b", "0.0.0.0:5000", "run:app"]
+# Command to run the application (app:app = app.py 中的 app 變數)
+CMD ["gunicorn", "-b", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "app:app"]
 

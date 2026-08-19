@@ -7,6 +7,31 @@ import { useNavigate } from "react-router-dom";
 
 import { useUser } from "@/context/UserContext";
 import type { BackendUserType } from "@/api/auth";
+import { getUserFriendlyMessage } from "@/api/http";
+
+// ---- 表單驗證輔助函式 ----
+function validateEmail(email: string): string | null {
+  if (!email || !email.trim()) return "請輸入電子郵件";
+  const pattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!pattern.test(email.trim())) return "無效的電子郵件格式";
+  return null;
+}
+
+function validatePassword(password: string): string | null {
+  if (!password) return "請輸入密碼";
+  if (password.length < 8) return "密碼至少需要 8 個字元";
+  if (password.length > 128) return "密碼不得超過 128 個字元";
+  if (!/[A-Z]/.test(password)) return "密碼需包含至少一個大寫字母";
+  if (!/[a-z]/.test(password)) return "密碼需包含至少一個小寫字母";
+  if (!/[0-9]/.test(password)) return "密碼需包含至少一個數字";
+  return null;
+}
+
+function validateUserName(name: string): string | null {
+  if (!name || !name.trim()) return "請輸入使用者名稱";
+  if (name.trim().length > 100) return "使用者名稱不得超過 100 個字元";
+  return null;
+}
 
 export default function WelcomePage() {
   const [open, setOpen] = useState<null | "login" | "signup">(null);
@@ -77,13 +102,25 @@ function LoginForm({ onDone }: { onDone: () => void }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    
+    // 前端驗證
+    const emailErr = validateEmail(account);
+    if (emailErr) {
+      setError(emailErr);
+      return;
+    }
+    if (!password) {
+      setError("請輸入密碼");
+      return;
+    }
+    
     setLoading(true);
     try {
-      await login(account, password); // 成功會寫 token + me
+      await login(account.trim(), password); // 成功會寫 token + me
       onDone(); // 關閉 Modal
       navigate("/products"); // 直接跳商品頁
     } catch (err: any) {
-      setError(err?.message || "登入失敗");
+      setError(getUserFriendlyMessage(err));
     } finally {
       setLoading(false);
     }
@@ -147,33 +184,55 @@ function SignupForm({ onDone }: { onDone: () => void }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-
+    
+    // 前端驗證
+    const emailErr = validateEmail(account);
+    if (emailErr) {
+      setError(emailErr);
+      return;
+    }
+    
+    const pwdErr = validatePassword(password);
+    if (pwdErr) {
+      setError(pwdErr);
+      return;
+    }
+    
     if (password !== confirmPwd) {
       setError("兩次輸入的密碼不一致");
       return;
     }
-    if (!userName.trim()) {
-      setError("請輸入使用者名稱");
+    
+    const nameErr = validateUserName(userName);
+    if (nameErr) {
+      setError(nameErr);
       return;
     }
-    if (role === "shop" && !shopName.trim()) {
-      setError("請輸入茶行名稱");
-      return;
+    
+    if (role === "shop") {
+      if (!shopName || !shopName.trim()) {
+        setError("請輸入茶行名稱");
+        return;
+      }
+      if (shopName.trim().length > 200) {
+        setError("茶行名稱不得超過 200 個字元");
+        return;
+      }
     }
 
     setLoading(true);
     try {
       await register({
-        account,
+        account: account.trim().toLowerCase(),
         password,
         role,
-        user_name: userName,
-        organization_name: role === "shop" ? shopName : undefined,
+        user_name: userName.trim(),
+        organization_name: role === "shop" ? shopName.trim() : undefined,
       }); // 成功會寫 token + me
       onDone(); // 關閉 Modal
       navigate("/products"); // 直接跳商品頁
     } catch (err: any) {
-      setError(err?.message || "註冊失敗");
+      setError(getUserFriendlyMessage(err));
     } finally {
       setLoading(false);
     }

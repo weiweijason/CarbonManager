@@ -1,4 +1,5 @@
 # backend/routes/emissions.py
+import logging
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import (
     get_jwt_identity,
@@ -21,6 +22,8 @@ from routes.helpers import (
     parse_display_id_safe,
     to_taipei_iso,
 )
+
+logger = logging.getLogger(__name__)
 
 
 product_emission_bp = Blueprint("emissions", __name__, url_prefix="/emissions")
@@ -64,18 +67,40 @@ def create(product_id):
         return json_response({"status": f"400: {err}"}, 400)
     if not fetch_product_for_owner(product_id_int, uid):
         return json_response({"status": "404: Product not found"}, 404)
-    data = request.get_json()
-    name = data.get("name")
+    data = request.get_json(force=True)
+    name = (data.get("name") or "").strip()
+    if not name:
+        return json_response({"error": "name is required"}, status=400)
+    if len(name) > 200:
+        return json_response({"error": "name must be at most 200 characters"}, status=400)
+    
     stage_id = data.get("stage_id")
+    if not stage_id:
+        return json_response({"error": "stage_id is required"}, status=400)
+    
     tag_id, err = parse_display_id_safe(data.get("tag_id"), "TAG")
     if err:
-        return json_response({"status": f"400: {err}"}, 400)
+        return json_response({"error": f"invalid tag_id: {err}"}, status=400)
     step_id, err = parse_display_id_safe(data.get("step_id"), "STP")
     if err:
-        return json_response({"status": f"400: {err}"}, 400)
+        return json_response({"error": f"invalid step_id: {err}"}, status=400)
+    
     factor_id = data.get("factor_id")
+    if not factor_id:
+        return json_response({"error": "factor_id is required"}, status=400)
+    
     quantity = data.get("quantity")
+    if quantity is None:
+        return json_response({"error": "quantity is required"}, status=400)
+    try:
+        quantity = float(quantity)
+        if quantity < 0:
+            return json_response({"error": "quantity must be non-negative"}, status=400)
+    except (ValueError, TypeError):
+        return json_response({"error": "quantity must be a number"}, status=400)
+    
     created_by = uid
+    logger.info(f"Creating emission: product_id={product_id_int}, user_id={uid}")
     create_emission(
             name,
             product_id_int,
@@ -98,7 +123,7 @@ def summary(product_id):
     if not fetch_product_for_owner(product_id_int, uid):
         return json_response({"status": "404: Product not found"}, 404)
     summary = get_emission_summary_for_owner(uid, product_id_int)
-    return jsonify(summary), 200
+    return json_response(summary, 200)
 
 @emission_bp.get("")
 @jwt_required()
@@ -113,7 +138,7 @@ def get_all_by_org():
                 "created_at": to_taipei_iso(r.get("created_at")),
             }
         )
-    return jsonify(emissions=emissions), 200
+    return json_response({"emissions": emissions}, 200)
 
 @emission_bp.get("/<string:emission_id>")
 @jwt_required()
@@ -124,7 +149,7 @@ def get_one(emission_id):
         return json_response({"status": f"400: {err}"}, 400)
     emission = get_emission_for_owner(uid, emission_id_int)
     if not emission:
-        return jsonify({"error": "Emission record not found"}), 404
+        return json_response({"error": "Emission record not found"}, status=404)
     return json_response({
         "emission_id": emission["id"],
         "emission_name": emission["name"],

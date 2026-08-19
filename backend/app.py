@@ -1,10 +1,13 @@
 import os
+import logging
 
 from config import Config
 from dotenv import load_dotenv
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from routes.auth import auth_bp
 from routes.onchain import onchain_bp
 from routes.product_types import product_types_bp
@@ -13,8 +16,24 @@ from routes.factor import factor_bp
 from routes.emissions import emission_bp
 from routes.report import report_bp
 
+# 配置日誌
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+logger = logging.getLogger(__name__)
+
 load_dotenv()
 jwt = JWTManager()
+
+# 速率限制 (使用 memory 後端，適合 POC)
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=None,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"
+)
 
 
 def create_app(config_class=Config):
@@ -28,6 +47,7 @@ def create_app(config_class=Config):
         app.root_path, "report", "records"
     )
     jwt.init_app(app)  
+    limiter.init_app(app)
 
     # register blueprints
     app.register_blueprint(onchain_bp)
@@ -37,6 +57,11 @@ def create_app(config_class=Config):
     app.register_blueprint(factor_bp)
     app.register_blueprint(emission_bp) 
     app.register_blueprint(report_bp)
+    
+    # 健康檢查端點
+    @app.route("/health")
+    def health_check():
+        return jsonify({"status": "ok", "service": "carbon-manager-backend"}), 200
     
     # --------- Swagger ---------
     @app.route("/openapi.yaml")  # Serve raw OpenAPI file
