@@ -25,7 +25,9 @@ product_types_products_bp = Blueprint("products", __name__)
 
 # Blueprint for product routes
 product_bp = Blueprint("product_bp", __name__, url_prefix="/products")
-product_bp.register_blueprint(product_emission_bp, url_prefix="/<string:product_id>")
+# 註冊產品層級的 emissions 藍圖
+# 完整路徑: /products/<product_id>/emissions
+product_bp.register_blueprint(product_emission_bp, url_prefix="/<string:product_id>/emissions")
 
 
 def _get_current_user_id() -> int:

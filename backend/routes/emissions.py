@@ -37,8 +37,12 @@ STAGE_ID_MAP = {
 # 反向對照表：數字 -> 字串
 STAGE_NUM_TO_NAME = {v: k for k, v in STAGE_ID_MAP.items()}
 
-product_emission_bp = Blueprint("emissions", __name__, url_prefix="/emissions")
-emission_bp = Blueprint("emissions", __name__, url_prefix="/emissions")
+# 產品層級的 emissions 藍圖（註冊在 /products/<product_id>/emissions）
+# 注意：url_prefix 留空，因為在 products.py 中註冊時會加上正確的路徑
+product_emission_bp = Blueprint("product_emissions", __name__)
+
+# 組織層級的 emissions 藍圖（註冊在 /emissions）
+emission_bp = Blueprint("org_emissions", __name__, url_prefix="/emissions")
 
 # Product Emissions routes 
 # -------- GET: List emissions from one product --------
