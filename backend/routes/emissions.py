@@ -25,6 +25,17 @@ from routes.helpers import (
 
 logger = logging.getLogger(__name__)
 
+# Stage 字串到數字的對照表
+STAGE_ID_MAP = {
+    "raw": 1,
+    "manufacture": 2,
+    "distribution": 3,
+    "use": 4,
+    "disposal": 5,
+}
+
+# 反向對照表：數字 -> 字串
+STAGE_NUM_TO_NAME = {v: k for k, v in STAGE_ID_MAP.items()}
 
 product_emission_bp = Blueprint("emissions", __name__, url_prefix="/emissions")
 emission_bp = Blueprint("emissions", __name__, url_prefix="/emissions")
@@ -43,10 +54,14 @@ def get_all(product_id):
     rows = get_emissions_by_product_for_owner(uid, product_id_int)
     emissions = []
     for r in rows:
+        # 將數字 stage_id 轉換為字串 (1->raw, 2->manufacture, ...)
+        raw_stage_id = r["stage_id"]
+        stage_id_str = STAGE_NUM_TO_NAME.get(raw_stage_id, str(raw_stage_id))
+        
         emissions.append({
             "emission_id": r["id"],
             "emission_name": r["name"],
-            "stage_id": r["stage_id"],
+            "stage_id": stage_id_str,  # 轉換為字串格式
             "step_id": r["step_id"],
             "tag_id": r["tag_id"],
             "factor_id": r["factor_id"],
@@ -78,12 +93,36 @@ def create(product_id):
     if not stage_id:
         return json_response({"error": "stage_id is required"}, status=400)
     
-    tag_id, err = parse_display_id_safe(data.get("tag_id"), "TAG")
-    if err:
-        return json_response({"error": f"invalid tag_id: {err}"}, status=400)
-    step_id, err = parse_display_id_safe(data.get("step_id"), "STP")
-    if err:
-        return json_response({"error": f"invalid step_id: {err}"}, status=400)
+    # 將字串 stage_id 轉換為數字 (raw->1, manufacture->2, ...)
+    if isinstance(stage_id, str):
+        stage_id_lower = stage_id.lower()
+        if stage_id_lower in STAGE_ID_MAP:
+            stage_id_num = STAGE_ID_MAP[stage_id_lower]
+            logger.info(f"Converted stage_id from '{stage_id}' to {stage_id_num}")
+        else:
+            return json_response({"error": f"invalid stage_id: {stage_id}. Must be one of: raw, manufacture, distribution, use, disposal"}, status=400)
+    elif isinstance(stage_id, (int, float)):
+        stage_id_num = int(stage_id)
+    else:
+        return json_response({"error": "invalid stage_id format"}, status=400)
+    
+    # tag_id: 可選欄位，允許 null
+    raw_tag_id = data.get("tag_id")
+    tag_id = None
+    if raw_tag_id:
+        tag_id, err = parse_display_id_safe(raw_tag_id, "TAG")
+        if err:
+            logger.warning(f"Invalid tag_id format: {raw_tag_id}, error: {err}")
+            # 對於 POC，允許無效的 tag_id，設為 null
+    
+    # step_id: 可選欄位，允許 null
+    raw_step_id = data.get("step_id")
+    step_id = None
+    if raw_step_id:
+        step_id, err = parse_display_id_safe(raw_step_id, "STP")
+        if err:
+            logger.warning(f"Invalid step_id format: {raw_step_id}, error: {err}")
+            # 對於 POC，允許無效的 step_id，設為 null
     
     factor_id = data.get("factor_id")
     if not factor_id:
@@ -100,11 +139,11 @@ def create(product_id):
         return json_response({"error": "quantity must be a number"}, status=400)
     
     created_by = uid
-    logger.info(f"Creating emission: product_id={product_id_int}, user_id={uid}")
+    logger.info(f"Creating emission: product_id={product_id_int}, user_id={uid}, stage_id={stage_id_num}")
     create_emission(
             name,
             product_id_int,
-            stage_id,
+            stage_id_num,  # 使用轉換後的數字 stage_id
             factor_id,
             quantity,
             tag_id,
@@ -132,9 +171,14 @@ def get_all_by_org():
     rows = get_emissions_by_owner(uid)
     emissions = []
     for r in rows:
+        # 將數字 stage_id 轉換為字串
+        raw_stage_id = r.get("stage_id")
+        stage_id_str = STAGE_NUM_TO_NAME.get(raw_stage_id, str(raw_stage_id) if raw_stage_id else None)
+        
         emissions.append(
             {
                 **r,
+                "stage_id": stage_id_str,  # 轉換為字串格式
                 "created_at": to_taipei_iso(r.get("created_at")),
             }
         )
