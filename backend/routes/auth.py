@@ -51,7 +51,6 @@ def validate_email_format(email: str) -> tuple[bool, str | None]:
     return True, None
 
 @auth_bp.post("/register")
-@limiter.limit("5 per hour")  # 註冊：每小時最多 5 次
 def register():
     data = request.get_json(force=True)
     account = (data.get("account") or "").strip().lower()
@@ -118,8 +117,6 @@ def register():
             },201)
     
 @auth_bp.post("/login")
-@limiter.limit("10 per hour")  # 登入：每小時最多 10 次
-@limiter.limit("3 per minute")  # 防止暴力攻擊：每分鐘最多 3 次
 def login():
     data = request.get_json(force=True)
     account = (data.get("account") or "").strip().lower()
