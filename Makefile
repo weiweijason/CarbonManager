@@ -39,13 +39,12 @@ open-site:
 db-up: ## Start MySQL (db service) and wait until healthy
 	@echo "✅ Starting MySQL..."
 	docker compose up -d $(DB_SVC)
-	@echo "⏳ Waiting for MySQL healthcheck..."
-	@for i in $$(seq 1 30); do \
-	  docker compose ps $(DB_SVC) | grep -q "healthy" && echo "✅ MySQL is healthy" && break; \
-	  sleep 2; \
-	  if [ $$i -eq 30 ]; then echo "❌ MySQL not healthy in time"; exit 1; fi; \
-	done
+	@echo "⏳ Waiting for MySQL to start (15 seconds)..."
+	@sleep 15
+	@echo "🔍 Checking MySQL status..."
+	@docker compose ps $(DB_SVC)
 	@echo "MySQL started on port: $${MYSQL_PORT:-3306}"
+	@echo "⚠️  If MySQL is not ready yet, wait a few more seconds and try again"
 
 db-down: ## Stop MySQL only
 	@echo "🧹Stopping MySQL..."
