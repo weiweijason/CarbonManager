@@ -58,9 +58,8 @@ def create_app(config_class=Config):
     app.register_blueprint(emission_bp) 
     app.register_blueprint(report_bp)
     
-    # 速率限制 (在 app 層級應用，避免 import-time NameError)
-    limiter.limit("5 per hour")(auth_bp, method="POST", path="/register")
-    limiter.limit("10 per hour", "3 per minute")(auth_bp, method="POST", path="/login")
+    # 注意: limiter.default_limits 已提供基礎速率限制保護 (200/day, 50/hour)
+    # 針對 POC 足夠使用，無需額外裝飾器
     
     # 健康檢查端點
     @app.route("/health")

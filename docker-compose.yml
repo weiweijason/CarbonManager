@@ -68,6 +68,9 @@ services:
       args:
         VITE_API_BASE_URL: /api
     container_name: carbon-manager-frontend
+    depends_on:
+      backend:
+        condition: service_started
     restart: unless-stopped
     ports:
       - "80:80"
