@@ -215,5 +215,8 @@ def create_step(product_id):
         return json_response({"status": f"400: {err}"}, 400)
     sort_order = data.get("sort_order")
     product_id_int, _ = parse_display_id_safe(product_id, "PRD")
-    create_steps(product_id_int, stage_id, tag_id_int, name, sort_order)
-    return json_response({"message": "Step created under product"}, 201)
+    new_step_id = create_steps(product_id_int, stage_id, tag_id_int, name, sort_order)
+    return json_response({
+        "message": "Step created under product",
+        "step_id": display_id("steps", new_step_id),
+    }, 201)

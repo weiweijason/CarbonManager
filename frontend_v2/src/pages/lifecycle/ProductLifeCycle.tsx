@@ -511,41 +511,80 @@ export default function ProductLifeCyclePage() {
       return;
     }
 
-    const payloadSteps = newSteps
-      .map((st) => {
-        const tagId = STEP_TAG_ID_MAP[st.tag as StepTag];
+    // 建立原始步驟 ID 到 payload 的映射
+    const stepIdToPayload: Array<{
+      originalStepId: string;
+      payload: any;
+    }> = [];
 
-        if (!tagId) {
-          console.warn(
-            "[steps] 無對應 tag_id，略過同步此步驟（只存在 localStorage）",
-            st
-          );
-          return null;
-        }
+    for (const st of newSteps) {
+      const tagId = STEP_TAG_ID_MAP[st.tag as StepTag];
 
-        const sortOrder = steps.findIndex((x) => x.id === st.id) + 1;
+      if (!tagId) {
+        console.warn(
+          "[steps] 無對應 tag_id，略過同步此步驟（只存在 localStorage）",
+          st
+        );
+        continue;
+      }
 
-        return {
-          stage_id: stageId as any as StageId,
-          tag_id: `TAG${tagId}`,
-          name: st.label,
-          sort_order: sortOrder,
-        };
-      })
-      .filter(Boolean) as any[];
+      const sortOrder = steps.findIndex((x) => x.id === st.id) + 1;
 
-    if (!payloadSteps.length) {
+      const payload = {
+        stage_id: stageId as any as StageId,
+        tag_id: `TAG${tagId}`,
+        name: st.label,
+        sort_order: sortOrder,
+      };
+
+      stepIdToPayload.push({ originalStepId: st.id, payload });
+    }
+
+    if (!stepIdToPayload.length) {
       console.info("[steps] 沒有任何帶 tag_id 的步驟可同步，略過呼叫後端");
       return;
     }
 
+    const payloadSteps = stepIdToPayload.map((s) => s.payload);
+
     try {
-      await apiSaveStepOrder(
+      const createdSteps = await apiSaveStepOrder(
         pidForApi,
         stageId as any as StageId,
         payloadSteps
       );
-      console.log("[steps] 已同步步驟到後端", payloadSteps);
+      console.log("[steps] 已同步步驟到後端", createdSteps);
+
+      // 更新步驟 ID：將臨時 ID 替換為後端回傳的 db: 開頭的 ID
+      if (createdSteps.length > 0) {
+        setStages((prev) => {
+          const updated = prev.map((s) => {
+            if (s.id !== stageId) return s;
+
+            const updatedSteps = s.steps.map((step) => {
+              // 檢查這個步驟是否是新同步的
+              const created = createdSteps.find(
+                (cs) => cs.originalIndex < stepIdToPayload.length &&
+                stepIdToPayload[cs.originalIndex]?.originalStepId === step.id
+              );
+
+              if (created) {
+                return {
+                  ...step,
+                  id: `db:${created.step_id}`,
+                };
+              }
+              return step;
+            });
+
+            return { ...s, steps: updatedSteps };
+          });
+
+          // 同時更新 localStorage
+          saveStageConfig(workingShopId, productId!, updated);
+          return updated;
+        });
+      }
     } catch (e) {
       console.error("[steps] 同步步驟到後端失敗（略過，不影響 UI）", e);
     }
@@ -604,11 +643,8 @@ export default function ProductLifeCyclePage() {
         return { ...s, steps: arr };
       });
       saveStageConfig(workingShopId, productId!, next);
-
-      const targetStage = next.find((s) => s.id === stageId);
-      if (targetStage) {
-        void syncStepsToBackend(stageId, targetStage.steps);
-      }
+      // 重整步驟時不同步到後端，因為只是改變順序，不需要新建步驟
+      // 如果需要同步順序到後端，可以考慮新增獨立的 API
       return next;
     });
   };

@@ -476,11 +476,12 @@ export async function apiListStepsByStage(
 
 /**
  * 建立單一步驟（符合後端 /api/products/:productId/steps）
+ * 回傳後端新建的 step_id
  */
 export async function apiCreateStep(
   productId: string | number,
   payload: CreateStepPayload
-): Promise<void> {
+): Promise<{ step_id: string }> {
   // 後端 parse_display_id(..., "TAG") 期待的是 "TAG3" 這種字串
   let tag_id: string | number = payload.tag_id;
 
@@ -494,28 +495,33 @@ export async function apiCreateStep(
     name: payload.name,
     sort_order: payload.sort_order,
   };
-  await http.post(
+  const res = await http.post<any>(
     `/api/products/${encodeURIComponent(String(productId))}/steps`,
     body
   );
+  return {
+    step_id: res.step_id ?? res.data?.step_id ?? `auto-${Date.now()}`,
+  };
 }
 
 /**
  * 兼容舊呼叫：傳進一整個 steps 陣列，
  * 內部改成「有 tag_id 的步驟才一筆一筆呼叫 apiCreateStep」。
  * 若沒有任何步驟帶 tag_id，會直接略過，不再打到後端。
+ * 
+ * 回傳：每個成功創建的步驟的 { originalIndex, step_id }
  */
 export async function apiSaveStepOrder(
   productId: string | number,
   stageId: StageId,
   steps: Array<Partial<StepDTO>>
-): Promise<void> {
+): Promise<Array<{ originalIndex: number; step_id: string }>> {
   if (!steps?.length) {
     console.info("[apiSaveStepOrder] 沒有任何步驟，略過呼叫後端");
-    return;
+    return [];
   }
 
-  const normalized: CreateStepPayload[] = [];
+  const normalized: Array<CreateStepPayload & { originalIndex: number }> = [];
   steps.forEach((s, idx) => {
     const any = s as any;
 
@@ -535,23 +541,28 @@ export async function apiSaveStepOrder(
         ? any.sort_order
         : idx + 1;
 
-    normalized.push({ stage_id, tag_id: tagIdDisplay, name, sort_order });
+    normalized.push({ stage_id, tag_id: tagIdDisplay, name, sort_order, originalIndex: idx });
   });
 
   if (!normalized.length) {
     console.info(
       "[apiSaveStepOrder] 沒有任何帶 tag_id 的步驟可同步，略過呼叫後端"
     );
-    return;
+    return [];
   }
+
+  const createdSteps: Array<{ originalIndex: number; step_id: string }> = [];
 
   for (const st of normalized) {
     try {
-      await apiCreateStep(productId, st);
+      const result = await apiCreateStep(productId, st);
+      createdSteps.push({ originalIndex: st.originalIndex, step_id: result.step_id });
     } catch (e) {
       console.error("[apiSaveStepOrder] 同步單一步驟失敗", st, e);
     }
   }
+
+  return createdSteps;
 }
 
 /* ================= Factors ================= */
