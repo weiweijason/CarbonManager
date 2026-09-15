@@ -7,7 +7,7 @@ import mysql.connector
 DB_HOST = os.getenv("DB_HOST", "db")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 DB_USER = os.getenv("DB_USER", "carbon")
-DB_PASS = os.getenv("DB_PASS", "carbonpass")
+DB_PASS = os.getenv("DB_PASS", os.getenv("DB_PASSWORD", "carbonpass"))
 DB_NAME = os.getenv("DB_NAME", "carbon_manager")
 
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
