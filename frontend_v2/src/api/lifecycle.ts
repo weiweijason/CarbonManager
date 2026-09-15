@@ -279,9 +279,9 @@ async function tryInferStagesFromSummary(
   productId: string | number
 ): Promise<StageRow[] | null> {
   try {
-    // 🔧 Hotfix: 後端 /emissions/summary 期待的是 "PD" 前綴
+    // 🔧 Hotfix: 後端 /emissions/summary 期待的是 "PRD" 前綴
     const rawId = String(productId);
-    const summaryId = rawId.startsWith("PRD") ? `PD${rawId.slice(3)}` : rawId;
+    const summaryId = rawId.startsWith("PRD") ? rawId : `PRD${rawId}`;
 
     const res = await http.get<any>(
       `/api/products/${encodeURIComponent(String(summaryId))}/emissions/summary`
@@ -799,7 +799,7 @@ export async function apiGetProductSummary(
 ): Promise<ProductSummaryDTO> {
   // 🔧 Hotfix：summary endpoint 需要 "PD" 前綴，不能直接丟 PRD*
   const rawId = String(productId);
-  const summaryId = rawId.startsWith("PRD") ? `PD${rawId.slice(3)}` : rawId;
+    const summaryId = rawId.startsWith("PRD") ? rawId : `PRD${rawId}`;
 
   return await http.get<any>(
     `/api/products/${encodeURIComponent(String(summaryId))}/emissions/summary`

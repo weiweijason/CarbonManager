@@ -256,6 +256,14 @@ export default function ProductListPage() {
   // ---------- CRUD ----------
   const [openModal, setOpenModal] = useState<null | "new" | "edit" | "newType" | "confirmDup" | "confirmDel">(null);
   const [newName, setNewName] = useState("");
+  const [newProductFields, setNewProductFields] = useState({
+    total_production: "",
+    production_unit: "",
+    unit_weight: "",
+    product_weight: "",
+    proportion: "",
+    allocation_basis: "",
+  });
   const [editId, setEditId] = useState<string | null>(null);
   const [editTypeId, setEditTypeId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -293,9 +301,19 @@ export default function ProductListPage() {
     if (!name) { setAddError("請輸入商品名稱"); return; }
     try {
       const useTid = await ensureTypeIdToUse();
-      await apiCreateProduct(useTid, { name });
+      const numericField = (value: string) => value.trim() === "" ? null : Number(value);
+      await apiCreateProduct(useTid, {
+        name,
+        total_production: numericField(newProductFields.total_production),
+        production_unit: newProductFields.production_unit || null,
+        unit_weight: numericField(newProductFields.unit_weight),
+        product_weight: numericField(newProductFields.product_weight),
+        proportion: numericField(newProductFields.proportion),
+        allocation_basis: newProductFields.allocation_basis || null,
+      });
       setOpenModal(null);
       setNewName("");
+      setNewProductFields({ total_production: "", production_unit: "", unit_weight: "", product_weight: "", proportion: "", allocation_basis: "" });
       setNewTypeName("");
       if (tid !== useTid) navigate(`/products/${encodeURIComponent(useTid)}`, { replace: true });
       refresh(useTid);
@@ -666,6 +684,30 @@ export default function ProductListPage() {
               })}
               {canEdit && <option value="__new">＋ 建立新分類…</option>}
             </select>
+          </Field>
+          <Field>
+            <label htmlFor="new-total-production">總產量</label>
+            <input id="new-total-production" type="number" step="any" value={newProductFields.total_production} onChange={(e) => setNewProductFields((v) => ({ ...v, total_production: e.target.value }))} />
+          </Field>
+          <Field>
+            <label htmlFor="new-production-unit">計量單位</label>
+            <input id="new-production-unit" value={newProductFields.production_unit} onChange={(e) => setNewProductFields((v) => ({ ...v, production_unit: e.target.value }))} />
+          </Field>
+          <Field>
+            <label htmlFor="new-unit-weight">單件裸裝重量（kg）</label>
+            <input id="new-unit-weight" type="number" step="any" value={newProductFields.unit_weight} onChange={(e) => setNewProductFields((v) => ({ ...v, unit_weight: e.target.value }))} />
+          </Field>
+          <Field>
+            <label htmlFor="new-product-weight">產品總重量（kg）</label>
+            <input id="new-product-weight" type="number" step="any" value={newProductFields.product_weight} onChange={(e) => setNewProductFields((v) => ({ ...v, product_weight: e.target.value }))} />
+          </Field>
+          <Field>
+            <label htmlFor="new-proportion">標的產品比例</label>
+            <input id="new-proportion" type="number" step="any" value={newProductFields.proportion} onChange={(e) => setNewProductFields((v) => ({ ...v, proportion: e.target.value }))} />
+          </Field>
+          <Field>
+            <label htmlFor="new-allocation-basis">分配比例計算依據</label>
+            <input id="new-allocation-basis" value={newProductFields.allocation_basis} onChange={(e) => setNewProductFields((v) => ({ ...v, allocation_basis: e.target.value }))} />
           </Field>
           {selectedType === "__new" && (
             <Field>

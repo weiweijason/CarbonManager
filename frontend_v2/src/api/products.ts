@@ -116,7 +116,15 @@ export async function apiListProducts(
 // POST /api/product_types/:typeId/products
 export async function apiCreateProduct(
   typeId: string,
-  body: { name: string }
+  body: {
+    name: string;
+    total_production?: number | null;
+    production_unit?: string | null;
+    unit_weight?: number | null;
+    product_weight?: number | null;
+    proportion?: number | null;
+    allocation_basis?: string | null;
+  }
 ): Promise<UIProduct> {
   const raw = await http.post<any>(
     `/api/product_types/${encodeId(typeId)}/products`,
