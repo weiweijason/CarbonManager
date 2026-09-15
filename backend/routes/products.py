@@ -174,9 +174,16 @@ def update(product_id):
         return json_response(error, status)
 
     data = request.get_json(force=True)
-    product_type_id_int, err = parse_display_id_safe(data.get("product_type_id"), "PRT")
-    if err:
-        return json_response({"status": f"400: {err}"}, 400)
+    existing_product = fetch_product_for_owner(product_id_int, uid)
+    product_type_value = data.get("product_type_id")
+    if product_type_value:
+        product_type_id_int, err = parse_display_id_safe(product_type_value, "PRT")
+        if err:
+            return json_response({"status": f"400: {err}"}, 400)
+    elif existing_product:
+        product_type_id_int = existing_product["type_id"]
+    else:
+        return json_response({"status": "404: Product not found"}, 404)
     org = get_user_organization(uid)
     if not org:
         return json_response({"status": "403: user has no organization"}, 403)

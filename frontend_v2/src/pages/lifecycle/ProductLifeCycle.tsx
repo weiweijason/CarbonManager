@@ -19,6 +19,7 @@ import Modal from "@/ui/components/Modal";
 import StageBlock from "@/ui/components/StageBlock";
 import HistoryList, { RecordItem } from "@/ui/components/HistoryList";
 import { useReport } from "@/context/ReportContext";
+import { apiUpdateProduct } from "@/api/products";
 import { useUser } from "@/context/UserContext";
 
 import {
@@ -932,7 +933,7 @@ export default function ProductLifeCyclePage() {
     );
     setTargetModalOpen(true);
   };
-  const persistTarget = () => {
+  const persistTarget = async () => {
     if (!editingTarget || readOnly) return;
     const t = editingTarget;
     const ok =
@@ -948,9 +949,35 @@ export default function ProductLifeCyclePage() {
       alert("請完整填寫標的資料");
       return;
     }
-    saveTarget(workingShopId, productId!, t);
-    setTarget(t);
-    setTargetModalOpen(false);
+
+    const localProduct = loadProducts(workingShopId).find(
+      (p: any) => String(p.id) === String(productId)
+    ) as any;
+    const productTypeId = localProduct?._typeId ?? localProduct?.type_id;
+    if (!productTypeId) {
+      alert("找不到產品分類，無法儲存標的資料");
+      return;
+    }
+
+    const totalWeight = outputMassKg(t);
+    try {
+      await apiUpdateProduct(productTypeId, productId!, {
+        name: productName,
+        total_production: t.unit === "pack" ? t.packCount ?? null : t.totalKg ?? null,
+        production_unit: t.unit === "pack" ? "包" : "kg",
+        unit_weight: t.unit === "pack" && t.gramsPerPack != null
+          ? t.gramsPerPack / 1000
+          : null,
+        product_weight: totalWeight ?? null,
+        allocation_basis: t.note ?? null,
+      });
+      saveTarget(workingShopId, productId!, t);
+      setTarget(t);
+      setTargetModalOpen(false);
+    } catch (error) {
+      console.error("[target] 儲存產品標的資料失敗", error);
+      alert("標的資料儲存失敗，請稍後再試");
+    }
   };
 
   if (!productId) {
