@@ -259,6 +259,14 @@ export default function ProductListPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [editTypeId, setEditTypeId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [editProductFields, setEditProductFields] = useState({
+    total_production: "",
+    production_unit: "",
+    unit_weight: "",
+    product_weight: "",
+    proportion: "",
+    allocation_basis: "",
+  });
   const [addError, setAddError] = useState("");
   const [dupTarget, setDupTarget] = useState<ProductRow | null>(null);
   const [dupLoading, setDupLoading] = useState(false);
@@ -403,7 +411,16 @@ export default function ProductListPage() {
     const name = editName.trim();
     if (!name) return;
     try {
-      await apiUpdateProduct(editTypeId, editId, { name });
+      const numericField = (value: string) => value.trim() === "" ? null : Number(value);
+      await apiUpdateProduct(editTypeId, editId, {
+        name,
+        total_production: numericField(editProductFields.total_production),
+        production_unit: editProductFields.production_unit || null,
+        unit_weight: numericField(editProductFields.unit_weight),
+        product_weight: numericField(editProductFields.product_weight),
+        proportion: numericField(editProductFields.proportion),
+        allocation_basis: editProductFields.allocation_basis || null,
+      });
       setProducts((prev) => prev.map((p) =>
         p.id === editId && p._typeId === editTypeId ? { ...p, name } : p
       ));
@@ -570,6 +587,14 @@ export default function ProductListPage() {
                         setEditId(idStr);
                         setEditTypeId(p._typeId ?? (tid !== "__all" ? tid : null));
                         setEditName(p.name as string);
+                        setEditProductFields({
+                          total_production: p.total_production == null ? "" : String(p.total_production),
+                          production_unit: p.production_unit ?? "",
+                          unit_weight: p.unit_weight == null ? "" : String(p.unit_weight),
+                          product_weight: p.product_weight == null ? "" : String(p.product_weight),
+                          proportion: p.proportion == null ? "" : String(p.proportion),
+                          allocation_basis: p.allocation_basis ?? "",
+                        });
                         setOpenModal("edit");
                         setMenuOpen(null);
                       }}>
@@ -675,6 +700,30 @@ export default function ProductListPage() {
               required
               autoFocus
             />
+          </Field>
+          <Field>
+            <label htmlFor="edit-total-production">總產量</label>
+            <input id="edit-total-production" type="number" step="any" value={editProductFields.total_production} onChange={(e) => setEditProductFields((v) => ({ ...v, total_production: e.target.value }))} />
+          </Field>
+          <Field>
+            <label htmlFor="edit-production-unit">計量單位</label>
+            <input id="edit-production-unit" value={editProductFields.production_unit} onChange={(e) => setEditProductFields((v) => ({ ...v, production_unit: e.target.value }))} />
+          </Field>
+          <Field>
+            <label htmlFor="edit-unit-weight">單件裸裝重量（kg）</label>
+            <input id="edit-unit-weight" type="number" step="any" value={editProductFields.unit_weight} onChange={(e) => setEditProductFields((v) => ({ ...v, unit_weight: e.target.value }))} />
+          </Field>
+          <Field>
+            <label htmlFor="edit-product-weight">產品總重量（kg）</label>
+            <input id="edit-product-weight" type="number" step="any" value={editProductFields.product_weight} onChange={(e) => setEditProductFields((v) => ({ ...v, product_weight: e.target.value }))} />
+          </Field>
+          <Field>
+            <label htmlFor="edit-proportion">標的產品比例</label>
+            <input id="edit-proportion" type="number" step="any" value={editProductFields.proportion} onChange={(e) => setEditProductFields((v) => ({ ...v, proportion: e.target.value }))} />
+          </Field>
+          <Field>
+            <label htmlFor="edit-allocation-basis">分配比例計算依據</label>
+            <input id="edit-allocation-basis" value={editProductFields.allocation_basis} onChange={(e) => setEditProductFields((v) => ({ ...v, allocation_basis: e.target.value }))} />
           </Field>
           <FormActions>
             <GhostButton type="button" onClick={() => setOpenModal(null)}>取消</GhostButton>

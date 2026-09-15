@@ -34,6 +34,16 @@ def _get_current_user_id() -> int:
     return int(get_jwt_identity())
 
 
+def _optional_float(data: dict, key: str):
+    value = data.get(key)
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{key} must be a number")
+
+
 def _require_owned_product_id(product_id: str, user_id: int) -> tuple[int | None, dict | None]:
     product_id_int, err = parse_display_id_safe(product_id, "PRD")
     if err:
@@ -69,6 +79,12 @@ def get_all(product_type_id):
                 "created_at": to_taipei_iso(r["created_at"]),
                 "ended_at": to_taipei_iso(r["ended_at"]),
                 "code": r["code"],
+                "total_production": r["total_production"],
+                "production_unit": r["production_unit"],
+                "unit_weight": r["unit_weight"],
+                "product_weight": r["product_weight"],
+                "proportion": r["proportion"],
+                "allocation_basis": r["allocation_basis"],
             }
         )
     return json_response({"products": products}, 200)
@@ -93,7 +109,21 @@ def create(product_type_id):
         return json_response({"status": "400: name is required"}, 400)
     serial_number = data.get("serial_number")
     code = data.get("code")
-    new_id = create_product(org["id"], uid, product_type_id_int, name, serial_number, code)
+    try:
+        product_fields = {
+            "total_production": _optional_float(data, "total_production"),
+            "production_unit": data.get("production_unit"),
+            "unit_weight": _optional_float(data, "unit_weight"),
+            "product_weight": _optional_float(data, "product_weight"),
+            "proportion": _optional_float(data, "proportion"),
+            "allocation_basis": data.get("allocation_basis"),
+        }
+    except ValueError as exc:
+        return json_response({"status": f"400: {exc}"}, 400)
+    new_id = create_product(
+        org["id"], uid, product_type_id_int, name, serial_number, code,
+        **product_fields,
+    )
     return json_response(
         {
             "message": "Product created",
@@ -121,6 +151,12 @@ def get(product_id):
             "product_type_id": display_id("product_types", pd["type_id"]),
             "organization_id": display_id("organizations", pd["organization_id"]),
             "owner_user_id": display_id("users", pd["owner_user_id"]),
+            "total_production": pd["total_production"],
+            "production_unit": pd["production_unit"],
+            "unit_weight": pd["unit_weight"],
+            "product_weight": pd["product_weight"],
+            "proportion": pd["proportion"],
+            "allocation_basis": pd["allocation_basis"],
             "created_at": to_taipei_iso(pd["created_at"]),
             "ended_at": to_taipei_iso(pd["ended_at"]),
         },
@@ -151,7 +187,21 @@ def update(product_id):
         return json_response({"status": "400: new_product_name is required"}, 400)
     serial_number = data.get("serial_number")
     code = data.get("code")
-    ok = update_product(product_id_int, uid, product_type_id_int, name, serial_number, code)
+    try:
+        product_fields = {
+            "total_production": _optional_float(data, "total_production"),
+            "production_unit": data.get("production_unit"),
+            "unit_weight": _optional_float(data, "unit_weight"),
+            "product_weight": _optional_float(data, "product_weight"),
+            "proportion": _optional_float(data, "proportion"),
+            "allocation_basis": data.get("allocation_basis"),
+        }
+    except ValueError as exc:
+        return json_response({"status": f"400: {exc}"}, 400)
+    ok = update_product(
+        product_id_int, uid, product_type_id_int, name, serial_number, code,
+        **product_fields,
+    )
     if not ok:
         return json_response({"status": "404: Product not found"}, 404)
     return json_response({"message": "Product updated"}, 200)

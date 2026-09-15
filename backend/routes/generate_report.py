@@ -13,13 +13,13 @@ from routes.helpers import to_taipei_iso
 
 # 標的產品區域欄位配置
 PRODUCT_INFO_FIELDS = {
-    "name": "D9",              # 產品名稱
-    "total_production": "E9", # 總產量
-    "production_unit": "F9",  # 計量單位
-    "unit_weight": "G9",      # 單件裸裝重量(不含包裝，kg)
-    "product_weight": "H9",   # 產品總重量(不含包裝，單位:kg)
-    "proportion": "I9",       # 標的產品佔全廠所有產品的比例
-    "allocation_basis": "J9", # 分配比例計算依據
+    "name": "C9",              # 產品名稱
+    "total_production": "D9", # 總產量
+    "production_unit": "E9",  # 計量單位
+    "unit_weight": "F9",      # 單件裸裝重量(不含包裝，kg)
+    "product_weight": "G9",   # 產品總重量(不含包裝，單位:kg)
+    "proportion": "H9",       # 標的產品佔全廠所有產品的比例
+    "allocation_basis": "I9", # 分配比例計算依據
 }
 
 TARGET_STAGE_IN_EXCEL = {

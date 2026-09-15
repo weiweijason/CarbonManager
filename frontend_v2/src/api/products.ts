@@ -10,6 +10,12 @@ export interface UIProduct {
   id: string | number;                 // 支援字串 or 數字
   name: string;
   serialNumber?: string | number | null;
+  total_production?: number | null;
+  production_unit?: string | null;
+  unit_weight?: number | null;
+  product_weight?: number | null;
+  proportion?: number | null;
+  allocation_basis?: string | null;
 }
 
 // ---- normalizers ----------------------------------------------------
@@ -76,6 +82,12 @@ function toUIProduct(x: any): UIProduct {
     id,
     name,
     serialNumber: serial,
+    total_production: src.total_production ?? null,
+    production_unit: src.production_unit ?? null,
+    unit_weight: src.unit_weight ?? null,
+    product_weight: src.product_weight ?? null,
+    proportion: src.proportion ?? null,
+    allocation_basis: src.allocation_basis ?? null,
   };
 }
 
@@ -129,7 +141,17 @@ export async function apiGetProduct(
 export async function apiUpdateProduct(
   typeId: string,
   productId: string | number,
-  body: { name?: string; serial_number?: string; code?: string }
+  body: {
+    name?: string;
+    serial_number?: string;
+    code?: string;
+    total_production?: number | null;
+    production_unit?: string | null;
+    unit_weight?: number | null;
+    product_weight?: number | null;
+    proportion?: number | null;
+    allocation_basis?: string | null;
+  }
 ): Promise<UIProduct> {
   const raw = await http.put<any>(
     `/api/products/${encodeId(productId)}`,
@@ -138,6 +160,12 @@ export async function apiUpdateProduct(
       new_product_name: body.name,
       serial_number: body.serial_number,
       code: body.code,
+      total_production: body.total_production,
+      production_unit: body.production_unit,
+      unit_weight: body.unit_weight,
+      product_weight: body.product_weight,
+      proportion: body.proportion,
+      allocation_basis: body.allocation_basis,
     }
   );
   return toUIProduct(raw);

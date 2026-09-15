@@ -9,6 +9,12 @@ def create_product(
     name: str,
     serial_number: Optional[str],
     code: Optional[str],
+    total_production: Optional[float] = None,
+    production_unit: Optional[str] = None,
+    unit_weight: Optional[float] = None,
+    product_weight: Optional[float] = None,
+    proportion: Optional[float] = None,
+    allocation_basis: Optional[str] = None,
 ) -> int:
     sql = """
         INSERT INTO products 
@@ -17,15 +23,23 @@ def create_product(
             type_id, 
             name, 
             serial_number, 
-            code)
-        VALUES (%s, %s, %s, %s, %s, %s)
+            code,
+            total_production,
+            production_unit,
+            unit_weight,
+            product_weight,
+            proportion,
+            allocation_basis)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
     with get_db() as conn:
         cur = conn.cursor()
         try:
             cur.execute(
                 sql,
-                (organization_id, owner_user_id, type_id, name, serial_number, code),
+                (organization_id, owner_user_id, type_id, name, serial_number, code,
+                 total_production, production_unit, unit_weight, product_weight,
+                 proportion, allocation_basis),
             )
             conn.commit()
             return cur.lastrowid
@@ -40,6 +54,12 @@ def list_products(organization_id: int, owner_user_id: int, product_type_id: int
             p.name, 
             p.serial_number, 
             p.total_emission, 
+            p.total_production,
+            p.production_unit,
+            p.unit_weight,
+            p.product_weight,
+            p.proportion,
+            p.allocation_basis,
             p.created_at, 
             p.ended_at, 
             p.code
@@ -68,13 +88,25 @@ def update_product(
     name: str,
     serial_number: Optional[str],
     code: Optional[str],
+    total_production: Optional[float] = None,
+    production_unit: Optional[str] = None,
+    unit_weight: Optional[float] = None,
+    product_weight: Optional[float] = None,
+    proportion: Optional[float] = None,
+    allocation_basis: Optional[str] = None,
 ) -> bool:
     sql = """
         UPDATE products
         SET type_id = %s,
             name = %s,
             serial_number = %s,
-            code = %s
+            code = %s,
+            total_production = %s,
+            production_unit = %s,
+            unit_weight = %s,
+            product_weight = %s,
+            proportion = %s,
+            allocation_basis = %s
         WHERE id = %s AND owner_user_id = %s
     """
     with get_db() as conn:
@@ -82,7 +114,9 @@ def update_product(
         try:
             cur.execute(
                 sql,
-                (type_id, name, serial_number, code, product_id, owner_user_id),
+                (type_id, name, serial_number, code, total_production, production_unit,
+                 unit_weight, product_weight, proportion, allocation_basis,
+                 product_id, owner_user_id),
             )
             conn.commit()
             return cur.rowcount > 0
