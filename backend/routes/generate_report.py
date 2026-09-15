@@ -99,11 +99,14 @@ def generate_json(product_id: int):
         if stage_id not in stage_dict:
             stage_dict[stage_id] = []
 
+        # Get factor data for material name and unit
+        factor = get_factor(em.get("factor_id")) or {}
+        
         record = {
-            "material": em.get("name"),
+            "material": factor.get("name"),  # Get material name from factor, not emissions
             "factor_id": em.get("factor_id"),
             "amount": em.get("quantity"),
-            "unit": (get_factor(em.get("factor_id")) or {}).get("unit", ""), # from factor
+            "unit": factor.get("unit", ""),  # from factor
             "emission_amount": em.get("emission_amount"),
             "timestamp": to_taipei_iso(em.get("created_at")),
         }
@@ -134,17 +137,19 @@ def collect_product_name(data):
 def collect_by_stage(data):
     out = {}
     for st in data.get("stages", []):
-        mapped = data.get(st.get("stage_name"), st.get("stage_name"))
+        stage_name = st.get("stage_name")  # Directly use stage_name (e.g., "原料取得")
+        if not stage_name:
+            continue
         rows = []
         for r in st.get("records", []):
-            name = r.get("material") or r.get("name") or ""
+            name = r.get("material") or ""
             amt  = r.get("emission_amount")
             if amt is not None:
                 amt = round(amt, 5)
             unit = r.get("unit") or ""
             rows.append((name, amt, unit))
         if rows:
-            out.setdefault(mapped, []).extend(rows)
+            out.setdefault(stage_name, []).extend(rows)
     return out
 
 def col_letter_to_index(letter: str) -> int:
