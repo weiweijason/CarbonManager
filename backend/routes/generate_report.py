@@ -13,13 +13,13 @@ from routes.helpers import to_taipei_iso
 
 # 標的產品區域欄位配置
 PRODUCT_INFO_FIELDS = {
-    "name": "C9",              # 產品名稱
-    "total_production": "C11", # 總產量
-    "production_unit": "C13",  # 計量單位
-    "unit_weight": "C15",      # 單件裸裝重量(不含包裝，kg)
-    "product_weight": "C17",   # 產品總重量(不含包裝，單位:kg)
-    "proportion": "C19",       # 標的產品佔全廠所有產品的比例
-    "allocation_basis": "C21", # 分配比例計算依據
+    "name": "D9",              # 產品名稱
+    "total_production": "E9", # 總產量
+    "production_unit": "F9",  # 計量單位
+    "unit_weight": "G9",      # 單件裸裝重量(不含包裝，kg)
+    "product_weight": "H9",   # 產品總重量(不含包裝，單位:kg)
+    "proportion": "I9",       # 標的產品佔全廠所有產品的比例
+    "allocation_basis": "J9", # 分配比例計算依據
 }
 
 TARGET_STAGE_IN_EXCEL = {
@@ -327,41 +327,13 @@ def generate_report(product_id: int, template_xlsx: str, output_xlsx: str):
 
     ws = wb.active
     
-    # 填入「標的產品」區域的所有欄位
-    ws["C9"].value = product_name  # 產品名稱
-    
-    # 填入其他產品資訊欄位
+    # 填入第 9 列橫向的「標的產品」欄位（D9:J9）
     product_data = data.get("product", {})
-    
-    # 總產量
-    total_production = product_data.get("total_production")
-    if total_production is not None:
-        ws["C11"].value = total_production
-    
-    # 計量單位
-    production_unit = product_data.get("production_unit")
-    if production_unit:
-        ws["C13"].value = production_unit
-    
-    # 單件裸裝重量(不含包裝，kg)
-    unit_weight = product_data.get("unit_weight")
-    if unit_weight is not None:
-        ws["C15"].value = unit_weight
-    
-    # 產品總重量(不含包裝，單位:kg)
-    product_weight = product_data.get("product_weight")
-    if product_weight is not None:
-        ws["C17"].value = product_weight
-    
-    # 標的產品佔全廠所有產品的比例
-    proportion = product_data.get("proportion")
-    if proportion is not None:
-        ws["C19"].value = proportion
-    
-    # 分配比例計算依據
-    allocation_basis = product_data.get("allocation_basis")
-    if allocation_basis:
-        ws["C21"].value = allocation_basis
+    product_data["name"] = product_name
+    for field, cell in PRODUCT_INFO_FIELDS.items():
+        value = product_data.get(field)
+        if value is not None:
+            ws[cell].value = value
 
     stage_anchor_rows = {}
     for stage, cfg in TARGET_STAGE_IN_EXCEL.items():
