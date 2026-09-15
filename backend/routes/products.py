@@ -189,7 +189,7 @@ def update(product_id):
         return json_response({"status": "403: user has no organization"}, 403)
     if not get_product_type_by_id(org["id"], product_type_id_int):
         return json_response({"status": "404: Product type not found"}, 404)
-    name = (data.get("new_product_name") or "").strip()
+    name = (data.get("new_product_name") or data.get("name") or existing_product["name"] or "").strip()
     if not name:
         return json_response({"status": "400: new_product_name is required"}, 400)
     serial_number = data.get("serial_number")
