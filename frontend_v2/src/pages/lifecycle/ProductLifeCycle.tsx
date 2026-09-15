@@ -950,18 +950,10 @@ export default function ProductLifeCyclePage() {
       return;
     }
 
-    const localProduct = loadProducts(workingShopId).find(
-      (p: any) => String(p.id) === String(productId)
-    ) as any;
-    const productTypeId = localProduct?._typeId ?? localProduct?.type_id;
-    if (!productTypeId) {
-      alert("找不到產品分類，無法儲存標的資料");
-      return;
-    }
-
     const totalWeight = outputMassKg(t);
     try {
-      await apiUpdateProduct(productTypeId, productId!, {
+      // 後端會在未提供 product_type_id 時沿用資料庫中的原分類。
+      await apiUpdateProduct("", productId!, {
         name: productName,
         total_production: t.unit === "pack" ? t.packCount ?? null : t.totalKg ?? null,
         production_unit: t.unit === "pack" ? "包" : "kg",
